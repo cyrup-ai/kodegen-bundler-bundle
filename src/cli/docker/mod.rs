@@ -35,7 +35,4 @@ mod limits;
 mod platform;
 
 // Re-export public API
-pub use bundler::ContainerBundler;
-pub use image::{check_docker_available, ensure_image_built};
-pub use limits::ContainerLimits;
-pub use platform::split_platforms_by_host;
+// (Public API items removed - not used externally)

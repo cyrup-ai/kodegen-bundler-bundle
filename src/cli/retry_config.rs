@@ -1,4 +1,6 @@
 //! Retry configuration for network operations.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Provides configurable retry limits for different operation types,
 //! allowing users to tune retry behavior based on network conditions.

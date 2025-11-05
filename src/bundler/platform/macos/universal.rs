@@ -1,4 +1,6 @@
 //! Universal binary creation for macOS (Intel + Apple Silicon)
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module provides functionality to create universal (fat) binaries
 //! by merging x86_64 and aarch64 builds using Apple's `lipo` tool.

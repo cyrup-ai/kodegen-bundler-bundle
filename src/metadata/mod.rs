@@ -4,6 +4,7 @@ use crate::error::{CliError, BundlerError, Result};
 use std::path::Path;
 
 /// Package metadata extracted from Cargo.toml
+#[allow(dead_code)] // Public API - preserved for external consumers
 pub struct PackageMetadata {
     /// Package name from Cargo.toml
     pub name: String,
@@ -25,10 +26,11 @@ pub struct PackageMetadata {
 }
 
 /// Complete manifest data from Cargo.toml
+#[allow(dead_code)] // Public API - preserved for external consumers
 pub struct CargoManifest {
     /// Package metadata ([package] section)
     pub metadata: PackageMetadata,
-    
+
     /// Primary binary name (from [[bin]] or package.name)
     pub binary_name: String,
 }
@@ -44,6 +46,7 @@ pub struct CargoManifest {
 /// ## Pattern
 /// Follows the same optimization used in workspace/analyzer.rs:145-157
 /// where root Cargo.toml is parsed once and passed to multiple functions.
+#[allow(dead_code)] // Public API - preserved for external consumers
 pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
     // Step 1: Read file once
     let manifest = std::fs::read_to_string(cargo_toml_path).map_err(|e| {

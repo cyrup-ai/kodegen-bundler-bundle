@@ -1,4 +1,6 @@
 //! Docker container bundler for cross-platform builds.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Manages Docker container lifecycle for building packages on platforms
 //! other than the host OS.

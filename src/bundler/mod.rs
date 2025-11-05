@@ -59,33 +59,9 @@ mod settings;
 mod utils;
 
 // Public re-exports
-pub use builder::Bundler;
 pub use error::{Error, Result};
-pub use patch::patch_binary;
 pub use platform::PackageType;
-pub use settings::{
-    AppImageSettings,
-    // Architecture detection
-    Arch,
-    // Binary configuration
-    BundleBinary,
-    BundleSettings,
-    // Platform-specific settings
-    DebianSettings,
-    DmgSettings,
-    MacOsSettings,
-    // NSIS enums
-    NSISInstallerMode,
-    NsisCompression,
-    NsisSettings,
-    PackageSettings,
-    RpmSettings,
-    // Main configuration types
-    Settings,
-    SettingsBuilder,
-    WindowsSettings,
-    WixSettings,
-};
+pub use settings::Settings;
 
 /// A bundled artifact result containing metadata about created installers.
 ///
@@ -123,6 +99,7 @@ pub use settings::{
 /// # }
 /// ```
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Public API - Fields preserved for external consumers
 pub struct BundledArtifact {
     /// The package type that was created (e.g., Deb, Rpm, Dmg, Msi).
     pub package_type: PackageType,

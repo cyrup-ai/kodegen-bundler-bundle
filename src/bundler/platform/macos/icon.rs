@@ -1,4 +1,6 @@
 //! ICNS icon file creation for macOS applications.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 
 #![cfg(target_os = "macos")]
 

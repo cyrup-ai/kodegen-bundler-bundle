@@ -1,4 +1,6 @@
 //! Command line argument parsing and validation.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module provides comprehensive CLI argument parsing using clap,
 //! with proper validation and error handling.
@@ -128,16 +130,14 @@ impl Args {
         }
 
         // Validate output directory if provided
-        if let Some(ref output_dir) = self.output_dir {
-            if let Some(parent) = output_dir.parent() {
-                if !parent.exists() {
+        if let Some(ref output_dir) = self.output_dir
+            && let Some(parent) = output_dir.parent()
+                && !parent.exists() {
                     return Err(format!(
                         "Output directory parent does not exist: {}",
                         parent.display()
                     ));
                 }
-            }
-        }
 
         Ok(())
     }

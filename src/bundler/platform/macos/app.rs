@@ -1,4 +1,6 @@
 //! macOS application bundle (.app) creation.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 
 use crate::bundler::{
     error::{Context, ErrorExt, Result},

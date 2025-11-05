@@ -1,4 +1,6 @@
 //! Platform detection and classification for Docker-based builds.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Determines which platforms can be built natively vs which require Docker containers.
 

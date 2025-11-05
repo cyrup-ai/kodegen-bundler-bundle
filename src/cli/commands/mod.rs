@@ -4,5 +4,3 @@
 
 // Submodules
 mod devcontainer;
-
-pub use devcontainer::copy_embedded_devcontainer;

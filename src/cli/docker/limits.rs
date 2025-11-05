@@ -1,4 +1,6 @@
 //! Resource limits for Docker containers.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Controls memory, CPU, and process limits to prevent containers from
 //! consuming excessive host resources during cross-platform builds.

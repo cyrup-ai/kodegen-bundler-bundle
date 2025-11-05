@@ -1,4 +1,6 @@
 //! Binary patching for updater support.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module provides functionality to patch compiled binaries with package type
 //! metadata. The patching occurs post-compilation but pre-packaging, allowing

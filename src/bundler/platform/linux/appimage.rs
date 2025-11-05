@@ -1,4 +1,6 @@
 //! AppImage bundler - portable Linux applications.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 
 use crate::{
     bail,

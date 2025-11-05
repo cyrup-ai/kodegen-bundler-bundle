@@ -1,4 +1,6 @@
 //! Bundle orchestration and coordination.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module provides the main [`Bundler`] orchestrator that coordinates
 //! platform-specific bundling operations to create native installers.

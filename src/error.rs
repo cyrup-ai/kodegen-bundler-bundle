@@ -2,7 +2,6 @@
 //!
 //! This module defines all error types with actionable error messages and recovery suggestions.
 
-use std::path::PathBuf;
 use thiserror::Error;
 
 /// Result type alias for bundler operations
@@ -38,6 +37,7 @@ pub enum BundlerError {
 
 /// CLI-specific errors
 #[derive(Error, Debug)]
+#[allow(dead_code)] // Error variants are defensive - better to have than not have
 pub enum CliError {
     /// Invalid command line arguments
     #[error("Invalid arguments: {reason}")]
@@ -72,11 +72,13 @@ pub enum CliError {
 
 impl BundlerError {
     /// Get actionable recovery suggestions for this error
+    #[allow(dead_code)] // Public API - preserved for external consumers
     pub fn recovery_suggestions(&self) -> Vec<String> {
         vec!["Check the error message above for specific details".to_string()]
     }
 
     /// Check if this error is recoverable
+    #[allow(dead_code)] // Public API - preserved for external consumers
     pub fn is_recoverable(&self) -> bool {
         true
     }

@@ -1,4 +1,6 @@
 //! Platform-specific bundling implementations.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module contains platform-specific code for creating native installers
 //! on Linux, macOS, and Windows.

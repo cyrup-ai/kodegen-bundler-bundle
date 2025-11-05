@@ -1,4 +1,6 @@
 //! RAII guard for Docker container cleanup.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Ensures containers are properly cleaned up even on panic or error.
 

@@ -1,4 +1,6 @@
 //! Embedded .devcontainer resources for Docker-based cross-platform bundling.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! This module embeds the .devcontainer configuration files at compile time,
 //! allowing the bundler to create Docker build environments without requiring

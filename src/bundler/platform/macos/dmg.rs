@@ -1,4 +1,6 @@
 //! macOS DMG disk image creator.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Creates professional drag-to-install DMG files using the native hdiutil tool.
 //! The DMG includes the .app bundle and an Applications symlink for easy installation.

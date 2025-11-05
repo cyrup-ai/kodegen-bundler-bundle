@@ -8,6 +8,8 @@
 //! - **Context trait**: Add context to errors similar to anyhow
 //! - **ErrorExt trait**: Filesystem operations with automatic path context
 //! - **bail! macro**: Early return with formatted error messages
+
+#![allow(dead_code)] // Error variants are defensive - better to have than not have
 //! - **Platform-specific errors**: Conditional compilation for OS-specific variants
 //!
 //! # Example
@@ -81,6 +83,7 @@ use thiserror::Error as DeriveError;
 /// including I/O errors, platform-specific errors, and errors from external crates.
 #[derive(Debug, DeriveError)]
 #[non_exhaustive]
+#[allow(clippy::enum_variant_names)] // Standard error naming convention: FooError for Error enum
 pub enum Error {
     /// Error with context. Created by the [`Context`] trait.
     ///

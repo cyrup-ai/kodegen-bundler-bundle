@@ -1,4 +1,6 @@
 //! Colored terminal output for release operations
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Provides consistent, colored CLI output with proper formatting
 

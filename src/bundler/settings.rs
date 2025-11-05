@@ -4,6 +4,8 @@
 //! bundling, including package metadata, platform-specific settings, and
 //! builder patterns for constructing settings.
 
+#![allow(dead_code)] // Public API - Settings structs preserve all fields for external consumers
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

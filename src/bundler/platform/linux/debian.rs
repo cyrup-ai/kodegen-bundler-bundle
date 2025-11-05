@@ -1,4 +1,6 @@
 //! Debian package (.deb) bundler.
+#![allow(dead_code)] // Public API - items may be used by external consumers
+
 //!
 //! Creates .deb packages as ar archives with proper Debian structure.
 //!
