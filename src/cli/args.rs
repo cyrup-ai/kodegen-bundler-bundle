@@ -4,86 +4,54 @@
 //! with proper validation and error handling.
 
 use super::retry_config::RetryConfig;
-use crate::version::VersionBump;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use std::path::PathBuf;
 
-/// Simple release tool for single Rust packages
+/// Platform package bundler for Rust binaries
 #[derive(Parser, Debug)]
 #[command(
-    name = "kodegen_bundler_release",
+    name = "kodegen_bundler_bundle",
     version,
-    about = "Simple release tool for single Rust packages",
-    long_about = "Create GitHub releases with multi-platform binary packages.
+    about = "Platform package bundler for Rust binaries",
+    long_about = "Creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage) for Rust binaries.
 
 Usage:
-  kodegen_bundler_release <source> [bump_type]
-  kodegen_bundler_release cyrup-ai/kodegen-tools-filesystem
-  kodegen_bundler_release cyrup-ai/kodegen-tools-filesystem minor
-  kodegen_bundler_release /path/to/local/repo --dry-run"
+  kodegen_bundler_bundle --repo-path /path/to/repo --platform deb --binary-name myapp --version 1.0.0
+  kodegen_bundler_bundle -r . -p dmg -b kodegen -v 0.1.3 --target x86_64-apple-darwin
+  kodegen_bundler_bundle --repo-path /workspace --platform rpm --binary-name tool --version 2.1.0 --no-build"
 )]
 pub struct Args {
-    // ===== POSITIONAL ARGUMENTS =====
+    /// Path to repository root
+    #[arg(short = 'r', long, value_name = "PATH")]
+    pub repo_path: PathBuf,
     
-    /// Repository source: local path, GitHub URL, or org/repo
-    #[arg(index = 1, value_name = "SOURCE")]
-    pub source: String,
-
-    /// Version bump type: patch, minor, major
-    #[arg(index = 2, value_enum, default_value = "patch")]
-    pub bump_type: BumpType,
-
-    // ===== RELEASE FLAGS =====
-
-    /// Perform dry run without making changes
+    /// Platform to bundle: deb, rpm, dmg, macos-bundle, nsis, appimage
+    #[arg(short, long, value_name = "PLATFORM")]
+    pub platform: String,
+    
+    /// Binary name to bundle
+    #[arg(short, long, value_name = "NAME")]
+    pub binary_name: String,
+    
+    /// Package version
+    #[arg(short, long, value_name = "VERSION")]
+    pub version: String,
+    
+    /// Output directory for artifacts
+    #[arg(short, long, value_name = "PATH")]
+    pub output_dir: Option<PathBuf>,
+    
+    /// Target architecture (e.g., x86_64-apple-darwin)
     #[arg(short, long)]
-    pub dry_run: bool,
-
-    /// Skip validation checks
+    pub target: Option<String>,
+    
+    /// Skip building binary (assume already built)
     #[arg(long)]
-    pub skip_validation: bool,
-
-    /// Force release even if working directory is dirty
-    #[arg(long)]
-    pub allow_dirty: bool,
-
-    /// Don't push to remote repository
-    #[arg(long)]
-    pub no_push: bool,
-
-    /// Registry to publish to (defaults to crates.io)
-    #[arg(long, value_name = "REGISTRY")]
-    pub registry: Option<String>,
-
-    /// GitHub repository override (format: owner/repo)
-    #[arg(long, value_name = "OWNER/REPO")]
-    pub github_repo: Option<String>,
-
-    /// Create universal binaries for macOS (x86_64 + arm64)
-    #[arg(long)]
-    pub universal: bool,
-
-    // ===== GLOBAL FLAGS =====
-
+    pub no_build: bool,
+    
     /// Enable verbose output
-    #[arg(short, long, global = true)]
+    #[arg(short = 'V', long)]
     pub verbose: bool,
-
-    /// Suppress all output except errors
-    #[arg(short, long, global = true, conflicts_with = "verbose")]
-    pub quiet: bool,
-
-    /// Path to workspace root (defaults to current directory)
-    #[arg(short, long, global = true, value_name = "PATH")]
-    pub workspace: Option<PathBuf>,
-
-    /// Path to state file
-    #[arg(long, global = true, value_name = "PATH")]
-    pub state_file: Option<PathBuf>,
-
-    /// Configuration file path
-    #[arg(short, long, global = true, value_name = "PATH")]
-    pub config: Option<PathBuf>,
 
     // ===== DOCKER CONTAINER LIMITS =====
 
@@ -112,103 +80,63 @@ pub struct Args {
     pub docker_pids_limit: Option<u32>,
 }
 
-
-
-/// Type of version bump
-#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
-pub enum BumpType {
-    /// Bump major version (breaking changes)
-    Major,
-    /// Bump minor version (new features)
-    Minor,
-    /// Bump patch version (bug fixes)
-    Patch,
-    /// Set exact version
-    Exact,
-}
-
-
-
-impl TryFrom<BumpType> for VersionBump {
-    type Error = String;
-
-    fn try_from(bump_type: BumpType) -> Result<Self, Self::Error> {
-        match bump_type {
-            BumpType::Major => Ok(VersionBump::Major),
-            BumpType::Minor => Ok(VersionBump::Minor),
-            BumpType::Patch => Ok(VersionBump::Patch),
-            BumpType::Exact => Err(
-                "Exact version bump requires --version parameter (not yet implemented)".to_string(),
-            ),
-        }
-    }
-}
-
 impl Args {
     /// Parse command line arguments
     pub fn parse_args() -> Self {
         Self::parse()
     }
 
-    /// Get workspace path or default to current directory
-    pub fn workspace_path(&self) -> PathBuf {
-        self.workspace.clone().unwrap_or_else(|| PathBuf::from("."))
-    }
-
-    /// Get state file path or default
-    pub fn state_file_path(&self) -> PathBuf {
-        self.state_file
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(".cyrup_release_state.json"))
-    }
-
     /// Check if running in verbose mode
     pub fn is_verbose(&self) -> bool {
-        self.verbose && !self.quiet
-    }
-
-    /// Check if running in quiet mode
-    pub fn is_quiet(&self) -> bool {
-        self.quiet
+        self.verbose
     }
 
     /// Validate arguments for consistency
     pub fn validate(&self) -> Result<(), String> {
-        // Check for conflicting global options
-        if self.verbose && self.quiet {
-            return Err("Cannot specify both --verbose and --quiet".to_string());
-        }
-
-        // Validate source argument
-        if self.source.is_empty() {
-            return Err("Source repository is required".to_string());
-        }
-
-        // Validate workspace path if provided
-        if let Some(ref workspace) = self.workspace {
-            if !workspace.exists() {
-                return Err(format!(
-                    "Workspace path does not exist: {}",
-                    workspace.display()
-                ));
-            }
-            if !workspace.is_dir() {
-                return Err(format!(
-                    "Workspace path is not a directory: {}",
-                    workspace.display()
-                ));
-            }
-        }
-
-        // Validate state file path if provided
-        if let Some(ref state_file) = self.state_file
-            && let Some(parent) = state_file.parent()
-            && !parent.exists()
-        {
+        // Validate repo path
+        if !self.repo_path.exists() {
             return Err(format!(
-                "State file directory does not exist: {}",
-                parent.display()
+                "Repository path does not exist: {}",
+                self.repo_path.display()
             ));
+        }
+        if !self.repo_path.is_dir() {
+            return Err(format!(
+                "Repository path is not a directory: {}",
+                self.repo_path.display()
+            ));
+        }
+
+        // Validate platform
+        let valid_platforms = ["deb", "rpm", "dmg", "macos-bundle", "nsis", "appimage"];
+        if !valid_platforms.contains(&self.platform.as_str()) {
+            return Err(format!(
+                "Invalid platform: {}. Valid platforms: {}",
+                self.platform,
+                valid_platforms.join(", ")
+            ));
+        }
+
+        // Validate binary name is not empty
+        if self.binary_name.is_empty() {
+            return Err("Binary name cannot be empty".to_string());
+        }
+
+        // Validate version is not empty
+        if self.version.is_empty() {
+            return Err("Version cannot be empty".to_string());
+        }
+
+        // Validate output directory if provided
+        if let Some(ref output_dir) = self.output_dir {
+            if let Some(parent) = output_dir.parent() {
+                if !parent.exists() {
+                    return Err(format!(
+                        "Output directory parent does not exist: {}",
+                        parent.display()
+                    ));
+                }
+            }
         }
 
         Ok(())
@@ -216,18 +144,13 @@ impl Args {
 }
 
 
-
 /// Configuration derived from command line arguments
 #[derive(Debug)]
 pub struct RuntimeConfig {
-    /// Workspace root path
-    pub workspace_path: PathBuf,
-    /// State file path
-    pub state_file_path: PathBuf,
+    /// Repository root path
+    pub repo_path: PathBuf,
     /// Verbosity level
     pub verbosity: VerbosityLevel,
-    /// Registry to use
-    pub registry: Option<String>,
     /// Output manager for colored terminal output
     output: super::OutputManager,
     /// Docker container memory limit
@@ -255,9 +178,7 @@ pub enum VerbosityLevel {
 
 impl From<&Args> for RuntimeConfig {
     fn from(args: &Args) -> Self {
-        let verbosity = if args.quiet {
-            VerbosityLevel::Quiet
-        } else if args.verbose {
+        let verbosity = if args.verbose {
             VerbosityLevel::Verbose
         } else {
             VerbosityLevel::Normal
@@ -265,14 +186,12 @@ impl From<&Args> for RuntimeConfig {
 
         let output = super::OutputManager::new(
             verbosity == VerbosityLevel::Verbose,
-            verbosity == VerbosityLevel::Quiet,
+            false, // Never quiet for bundler
         );
 
         Self {
-            workspace_path: args.workspace_path(),
-            state_file_path: args.state_file_path(),
+            repo_path: args.repo_path.clone(),
             verbosity,
-            registry: args.registry.clone(),
             output,
             // Docker container limits
             docker_memory: args.docker_memory.clone(),
