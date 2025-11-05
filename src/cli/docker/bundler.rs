@@ -8,7 +8,7 @@ use super::guard::ContainerGuard;
 use super::limits::ContainerLimits;
 use super::platform::{platform_emoji, platform_type_to_string};
 use crate::bundler::PackageType;
-use crate::error::{CliError, ReleaseError};
+use crate::error::{CliError, BundlerError};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
@@ -91,7 +91,7 @@ impl ContainerBundler {
         binary_name: &str,
         version: &str,
         runtime_config: &crate::cli::RuntimeConfig,
-    ) -> Result<Vec<PathBuf>, ReleaseError> {
+    ) -> Result<Vec<PathBuf>, BundlerError> {
         let platform_str = platform_type_to_string(platform);
 
         runtime_config.indent(&format!(
@@ -131,7 +131,7 @@ impl ContainerBundler {
                 }
             })
             .map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "resolve workspace path".to_string(),
                     reason: format!(
                         "Cannot resolve workspace path '{}': {}\n\
@@ -145,7 +145,7 @@ impl ContainerBundler {
 
         // SECURITY: Verify it's actually a directory, not a file
         if !workspace_path.is_dir() {
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "validate workspace".to_string(),
                 reason: format!(
                     "Workspace path is not a directory: {}\n\
@@ -160,7 +160,7 @@ impl ContainerBundler {
         // Ensure target directory exists (idempotent - safe to call even if exists)
         let target_dir = workspace_path.join("target");
         std::fs::create_dir_all(&target_dir).map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "create target directory".to_string(),
                 reason: format!(
                     "Failed to ensure target directory exists: {}\n\
@@ -180,7 +180,7 @@ impl ContainerBundler {
         // Create isolated temp target directory for this build
         let temp_target_dir = workspace_path.join(format!("target-temp-{}", build_uuid));
         std::fs::create_dir_all(&temp_target_dir).map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "create temporary target directory".to_string(),
                 reason: format!("Failed to create {}: {}", temp_target_dir.display(), e),
             })
@@ -270,7 +270,7 @@ impl ContainerBundler {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: format!("docker run {}", docker_args.join(" ")),
                     reason: e.to_string(),
                 })
@@ -308,7 +308,7 @@ impl ContainerBundler {
             Ok(Ok(status)) => status, // Completed normally
             Ok(Err(e)) => {
                 // Wait failed (process error)
-                return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+                return Err(BundlerError::Cli(CliError::ExecutionFailed {
                     command: format!("docker run {}", docker_args.join(" ")),
                     reason: e.to_string(),
                 }));
@@ -328,7 +328,7 @@ impl ContainerBundler {
                 // Wait for process to exit and reap zombie (with short timeout)
                 let _ = tokio::time::timeout(Duration::from_secs(10), child.wait()).await;
 
-                return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+                return Err(BundlerError::Cli(CliError::ExecutionFailed {
                     command: format!("bundle {} in container", platform_str),
                     reason: format!(
                         "Docker bundling timed out after {} minutes.\n\
@@ -425,7 +425,7 @@ impl ContainerBundler {
                     reason.push_str(&stderr_str);
                 }
 
-                return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+                return Err(BundlerError::Cli(CliError::ExecutionFailed {
                     command: format!("bundle {} in container", platform_str),
                     reason,
                 }));
@@ -438,7 +438,7 @@ impl ContainerBundler {
                     "No error output captured".to_string()
                 };
 
-                return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+                return Err(BundlerError::Cli(CliError::ExecutionFailed {
                     command: format!("bundle {} in container", platform_str),
                     reason: format!(
                         "Container bundling failed with exit code: {}\n\n{}",
@@ -460,7 +460,7 @@ impl ContainerBundler {
             .join(platform_str.to_lowercase());
 
         if !bundle_dir.exists() {
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "find bundle directory".to_string(),
                 reason: format!(
                     "Bundle directory not found: {}\nExpected artifacts from container build",
@@ -476,7 +476,7 @@ impl ContainerBundler {
         ));
 
         let entries = std::fs::read_dir(&bundle_dir).map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "read bundle directory".to_string(),
                 reason: format!("Failed to read {}: {}", bundle_dir.display(), e),
             })
@@ -485,7 +485,7 @@ impl ContainerBundler {
         let mut artifacts = Vec::new();
         for entry in entries {
             let entry = entry.map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "read directory entry".to_string(),
                     reason: format!("Failed to read entry in {}: {}", bundle_dir.display(), e),
                 })
@@ -494,7 +494,7 @@ impl ContainerBundler {
 
             // Skip non-regular files (directories, symlinks)
             let metadata = std::fs::symlink_metadata(&path).map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "read file metadata".to_string(),
                     reason: format!("Failed to read metadata for {}: {}", path.display(), e),
                 })
@@ -608,7 +608,7 @@ impl ContainerBundler {
                 ),
             };
 
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "find artifacts".to_string(),
                 reason,
             }));
@@ -634,7 +634,7 @@ impl ContainerBundler {
         // Ensure parent directory exists
         if let Some(parent) = final_bundle_dir.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "create bundle parent directory".to_string(),
                     reason: format!("Failed to create {}: {}", parent.display(), e),
                 })
@@ -644,7 +644,7 @@ impl ContainerBundler {
         // Remove old final directory if it exists (safe here because we have artifacts)
         if final_bundle_dir.exists() {
             std::fs::remove_dir_all(&final_bundle_dir).map_err(|e| {
-                ReleaseError::Cli(CliError::ExecutionFailed {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "remove old bundle directory".to_string(),
                     reason: format!("Failed to remove {}: {}", final_bundle_dir.display(), e),
                 })
@@ -653,7 +653,7 @@ impl ContainerBundler {
 
         // Atomic rename: only one process can succeed
         std::fs::rename(&temp_bundle_dir, &final_bundle_dir).map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "move artifacts to final location".to_string(),
                 reason: format!(
                     "Failed to move {} to {}: {}\n\

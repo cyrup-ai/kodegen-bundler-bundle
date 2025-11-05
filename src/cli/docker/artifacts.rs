@@ -2,7 +2,7 @@
 //!
 //! Handles finding and verifying package artifacts created by Docker containers.
 
-use crate::error::{CliError, ReleaseError};
+use crate::error::{CliError, BundlerError};
 use std::path::PathBuf;
 
 /// Verifies that artifacts are complete and not corrupted.
@@ -18,11 +18,11 @@ use std::path::PathBuf;
 pub fn verify_artifacts(
     artifacts: &[PathBuf],
     runtime_config: &crate::cli::RuntimeConfig,
-) -> Result<(), ReleaseError> {
+) -> Result<(), BundlerError> {
     for artifact in artifacts {
         // Check file exists and get metadata
         let metadata = std::fs::metadata(artifact).map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "verify artifact".to_string(),
                 reason: format!("Cannot read artifact {}: {}", artifact.display(), e),
             })
@@ -30,7 +30,7 @@ pub fn verify_artifacts(
 
         // Check file is not empty
         if metadata.len() == 0 {
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "verify artifact".to_string(),
                 reason: format!(
                     "Artifact is empty (0 bytes): {}\n\

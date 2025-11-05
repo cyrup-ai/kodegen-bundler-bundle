@@ -3,7 +3,7 @@
 //! Handles building and maintaining the builder Docker image used for
 //! cross-platform package creation.
 
-use crate::error::{CliError, ReleaseError};
+use crate::error::{CliError, BundlerError};
 use chrono::{DateTime, Utc};
 use std::path::Path;
 use std::process::Stdio;
@@ -39,7 +39,7 @@ const DOCKER_START_HELP: &str = "Start Docker Desktop from the Start menu";
 ///
 /// * `Ok(())` - Docker is available
 /// * `Err` - Docker is not installed or daemon is not running
-pub async fn check_docker_available() -> Result<(), ReleaseError> {
+pub async fn check_docker_available() -> Result<(), BundlerError> {
     let status_result = timeout(
         DOCKER_INFO_TIMEOUT,
         Command::new("docker")
@@ -52,7 +52,7 @@ pub async fn check_docker_available() -> Result<(), ReleaseError> {
 
     match status_result {
         // Timeout occurred
-        Err(_) => Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        Err(_) => Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker info".to_string(),
             reason: format!(
                 "Docker daemon check timed out after {} seconds.\n\
@@ -72,7 +72,7 @@ pub async fn check_docker_available() -> Result<(), ReleaseError> {
         // Docker command exists but daemon isn't responding
         Ok(Ok(status)) => {
             let exit_code = status.code().unwrap_or(-1);
-            Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "docker info".to_string(),
                 reason: format!(
                     "Docker daemon is not responding (exit code: {}).\n\
@@ -87,7 +87,7 @@ pub async fn check_docker_available() -> Result<(), ReleaseError> {
         }
 
         // Docker command not found - not installed
-        Ok(Err(e)) => Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        Ok(Err(e)) => Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker".to_string(),
             reason: format!(
                 "Docker command not found: {}\n\
@@ -124,11 +124,11 @@ pub async fn ensure_image_built(
     workspace_path: &Path,
     force_rebuild: bool,
     runtime_config: &crate::cli::RuntimeConfig,
-) -> Result<(), ReleaseError> {
+) -> Result<(), BundlerError> {
     let dockerfile_path = workspace_path.join(".devcontainer/Dockerfile");
 
     if !dockerfile_path.exists() {
-        return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "check_dockerfile".to_string(),
             reason: format!(
                 "Dockerfile not found at: {}\n\
@@ -166,13 +166,13 @@ pub async fn ensure_image_built(
     )
     .await
     .map_err(|_| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker images".to_string(),
             reason: "Docker image check timed out after 10 seconds".to_string(),
         })
     })?
     .map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker images".to_string(),
             reason: e.to_string(),
         })
@@ -251,14 +251,14 @@ async fn is_image_up_to_date(
     image_id: &str,
     dockerfile_path: &Path,
     runtime_config: &crate::cli::RuntimeConfig,
-) -> Result<bool, ReleaseError> {
+) -> Result<bool, BundlerError> {
     // Get image creation timestamp from Docker
     let inspect_output = Command::new("docker")
         .args(["inspect", "-f", "{{.Created}}", image_id])
         .output()
         .await
         .map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: format!("docker inspect {}", image_id),
                 reason: e.to_string(),
             })
@@ -266,7 +266,7 @@ async fn is_image_up_to_date(
 
     if !inspect_output.status.success() {
         let stderr = String::from_utf8_lossy(&inspect_output.stderr);
-        return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker inspect".to_string(),
             reason: format!("Failed to inspect image: {}", stderr),
         }));
@@ -278,7 +278,7 @@ async fn is_image_up_to_date(
 
     // Parse Docker's RFC3339 timestamp
     let image_created_time = DateTime::parse_from_rfc3339(&image_created_str).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "parse_timestamp".to_string(),
             reason: format!(
                 "Invalid timestamp from Docker '{}': {}",
@@ -289,14 +289,14 @@ async fn is_image_up_to_date(
 
     // Get Dockerfile modification time
     let dockerfile_metadata = std::fs::metadata(dockerfile_path).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "stat_dockerfile".to_string(),
             reason: format!("Cannot read Dockerfile metadata: {}", e),
         })
     })?;
 
     let dockerfile_modified = dockerfile_metadata.modified().map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "get_mtime".to_string(),
             reason: format!("Cannot get Dockerfile modification time: {}", e),
         })
@@ -336,7 +336,7 @@ async fn is_image_up_to_date(
 pub async fn build_docker_image(
     workspace_path: &Path,
     runtime_config: &crate::cli::RuntimeConfig,
-) -> Result<(), ReleaseError> {
+) -> Result<(), BundlerError> {
     let dockerfile_dir = workspace_path.join(".devcontainer");
 
     runtime_config.progress(&format!("Building Docker image: {}", BUILDER_IMAGE_NAME));
@@ -357,7 +357,7 @@ pub async fn build_docker_image(
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "docker build".to_string(),
                 reason: e.to_string(),
             })
@@ -380,7 +380,7 @@ pub async fn build_docker_image(
         Ok(Ok(status)) => status, // Completed normally
         Ok(Err(e)) => {
             // Wait failed (process error)
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "docker build".to_string(),
                 reason: e.to_string(),
             }));
@@ -397,7 +397,7 @@ pub async fn build_docker_image(
             // Wait for process to exit and reap zombie (with short timeout)
             let _ = tokio::time::timeout(Duration::from_secs(10), child.wait()).await;
 
-            return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "docker build".to_string(),
                 reason: format!(
                     "Docker build timed out after {} minutes.\n\
@@ -419,7 +419,7 @@ pub async fn build_docker_image(
     };
 
     if !status.success() {
-        return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker build".to_string(),
             reason: format!(
                 "Build failed with exit code: {}",
@@ -478,14 +478,14 @@ fn humanize_duration(seconds: i64) -> String {
 ///
 /// * `Ok(days)` - Number of days since image was created
 /// * `Err` - Could not determine image age
-async fn get_image_age_days(image_id: &str) -> Result<i64, ReleaseError> {
+async fn get_image_age_days(image_id: &str) -> Result<i64, BundlerError> {
     // Get image creation timestamp from Docker
     let inspect_output = Command::new("docker")
         .args(["inspect", "-f", "{{.Created}}", image_id])
         .output()
         .await
         .map_err(|e| {
-            ReleaseError::Cli(CliError::ExecutionFailed {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: format!("docker inspect {}", image_id),
                 reason: e.to_string(),
             })
@@ -493,7 +493,7 @@ async fn get_image_age_days(image_id: &str) -> Result<i64, ReleaseError> {
 
     if !inspect_output.status.success() {
         let stderr = String::from_utf8_lossy(&inspect_output.stderr);
-        return Err(ReleaseError::Cli(CliError::ExecutionFailed {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker inspect".to_string(),
             reason: format!("Failed to get image creation time: {}", stderr),
         }));
@@ -505,7 +505,7 @@ async fn get_image_age_days(image_id: &str) -> Result<i64, ReleaseError> {
 
     // Parse Docker's RFC3339 timestamp
     let created_time = DateTime::parse_from_rfc3339(&created_str).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "parse_timestamp".to_string(),
             reason: format!("Invalid timestamp '{}': {}", created_str, e),
         })

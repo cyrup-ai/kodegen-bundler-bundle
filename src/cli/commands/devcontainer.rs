@@ -4,7 +4,7 @@
 //! allowing the bundler to create Docker build environments without requiring
 //! the source .devcontainer directory at runtime.
 
-use crate::error::{CliError, ReleaseError, Result};
+use crate::error::{CliError, BundlerError, Result};
 use std::fs;
 use std::path::Path;
 
@@ -52,7 +52,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
     
     // Create .devcontainer directory with standard permissions
     fs::create_dir_all(&devcontainer_dir).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "create_devcontainer_dir".to_string(),
             reason: format!(
                 "Failed to create .devcontainer directory at {}: {}",
@@ -64,7 +64,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
     
     // Write Dockerfile (required for Docker image builds)
     fs::write(devcontainer_dir.join("Dockerfile"), DOCKERFILE).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "write_dockerfile".to_string(),
             reason: format!(
                 "Failed to write Dockerfile to {}: {}",
@@ -76,7 +76,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
     
     // Write README.md (documentation)
     fs::write(devcontainer_dir.join("README.md"), README).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "write_readme".to_string(),
             reason: format!(
                 "Failed to write README.md to {}: {}",
@@ -92,7 +92,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
         DEVCONTAINER_JSON,
     )
     .map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "write_devcontainer_json".to_string(),
             reason: format!(
                 "Failed to write devcontainer.json to {}: {}",

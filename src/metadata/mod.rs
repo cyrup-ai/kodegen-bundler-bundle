@@ -1,6 +1,6 @@
 //! Metadata and binary discovery from single Cargo.toml
 
-use crate::error::{CliError, ReleaseError, Result};
+use crate::error::{CliError, BundlerError, Result};
 use std::path::Path;
 
 /// Package metadata extracted from Cargo.toml
@@ -47,7 +47,7 @@ pub struct CargoManifest {
 pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
     // Step 1: Read file once
     let manifest = std::fs::read_to_string(cargo_toml_path).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "read_cargo_toml".to_string(),
             reason: format!("Failed to read {}: {}", cargo_toml_path.display(), e),
         })
@@ -55,14 +55,14 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
 
     // Step 2: Parse TOML once
     let toml_value: toml::Value = toml::from_str(&manifest).map_err(|e| {
-        ReleaseError::Cli(CliError::ExecutionFailed {
+        BundlerError::Cli(CliError::ExecutionFailed {
             command: "parse_cargo_toml".to_string(),
             reason: format!("Failed to parse Cargo.toml: {}", e),
         })
     })?;
 
     let package = toml_value.get("package").ok_or_else(|| {
-        ReleaseError::Cli(CliError::InvalidArguments {
+        BundlerError::Cli(CliError::InvalidArguments {
             reason: "No [package] section in Cargo.toml".to_string(),
         })
     })?;
@@ -73,7 +73,7 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
             .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                ReleaseError::Cli(CliError::InvalidArguments {
+                BundlerError::Cli(CliError::InvalidArguments {
                     reason: "Missing 'name' in [package]".to_string(),
                 })
             })?
@@ -89,7 +89,7 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
             .get("version")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                ReleaseError::Cli(CliError::InvalidArguments {
+                BundlerError::Cli(CliError::InvalidArguments {
                     reason: "Missing 'version' in [package]".to_string(),
                 })
             })?
@@ -133,7 +133,7 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
                 .map(String::from)
         })
         .ok_or_else(|| {
-            ReleaseError::Cli(CliError::InvalidArguments {
+            BundlerError::Cli(CliError::InvalidArguments {
                 reason: "No binary found in Cargo.toml".to_string(),
             })
         })?;

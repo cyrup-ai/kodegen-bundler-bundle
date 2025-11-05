@@ -1,16 +1,16 @@
-//! Comprehensive error types for cyrup_release operations.
+//! Comprehensive error types for bundler operations.
 //!
 //! This module defines all error types with actionable error messages and recovery suggestions.
 
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Result type alias for cyrup_release operations
-pub type Result<T> = std::result::Result<T, ReleaseError>;
+/// Result type alias for bundler operations
+pub type Result<T> = std::result::Result<T, BundlerError>;
 
-/// Main error type for all cyrup_release operations
+/// Main error type for all bundler operations
 #[derive(Error, Debug)]
-pub enum ReleaseError {
+pub enum BundlerError {
     /// CLI argument errors
     #[error("CLI error: {0}")]
     Cli(#[from] CliError),
@@ -70,7 +70,7 @@ pub enum CliError {
     },
 }
 
-impl ReleaseError {
+impl BundlerError {
     /// Get actionable recovery suggestions for this error
     pub fn recovery_suggestions(&self) -> Vec<String> {
         vec!["Check the error message above for specific details".to_string()]

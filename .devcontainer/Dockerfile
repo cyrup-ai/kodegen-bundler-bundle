@@ -2,6 +2,7 @@
 # Test stages independently to catch failures early:
 #   docker build --target=base-packages     (30 seconds)
 #   docker build --target=rust-toolchain    (5 minutes)
+#   docker build --target=bundler-builder   (10 minutes - includes bundler build)
 #   docker build .                          (full build)
 
 # ============================================================================
@@ -75,20 +76,39 @@ RUN rustup default nightly-2024-10-20 \
 RUN rustc --version && cargo --version
 
 # ============================================================================
-# Stage 4: full-builder (default)
-# Complete build environment ready for compilation
+# Stage 4: bundler-builder
+# Build and install bundler binary during image creation
 # ============================================================================
-FROM rust-toolchain AS full-builder
+FROM rust-toolchain AS bundler-builder
+
+# Copy bundler source into image
+COPY --chown=builder:builder . /bundler-source
+WORKDIR /bundler-source
+
+# Build and install bundler binary
+RUN cargo build --release && \
+    cargo install --path .
+
+# Verify bundler installation
+RUN kodegen_bundler_bundle --version || kodegen_bundler_bundle --help
+
+# ============================================================================
+# Stage 5: full-builder (default)
+# Complete build environment ready for compilation with pre-built bundler
+# ============================================================================
+FROM bundler-builder AS full-builder
 
 # Create cache directory for NSIS downloads
 RUN mkdir -p $HOME/.cache/cyrup
 
+# Set working directory for runtime
 WORKDIR /workspace
 
-# Final verification of all tools
+# Final verification of all tools including pre-built bundler
 RUN rustc --version && \
     cargo --version && \
-    makensis -VERSION
+    makensis -VERSION && \
+    kodegen_bundler_bundle --version
 
 # Build instructions:
 # - Stage testing: docker build --target=<stage> -t kodegen-test-<stage> .
