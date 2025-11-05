@@ -1,10 +1,14 @@
-//! Cyrup Release - Production-quality release management for Rust workspaces.
+//! Kodegen Bundler Bundle - Platform package bundler for Rust workspaces.
 //!
-//! This binary provides atomic release operations with proper error handling,
-//! automatic internal dependency version synchronization, and rollback capabilities.
+//! This binary creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage)
+//! from Rust binaries with proper error handling and artifact verification.
 
-use kodegen_bundler_release::cli;
-use kodegen_bundler_release::cli::OutputManager;
+mod cli;
+mod bundler;
+mod error;
+mod metadata;
+
+use cli::OutputManager;
 use std::process;
 
 fn main() {

@@ -71,14 +71,14 @@ impl ContainerBundler {
 
     /// Bundles a single platform in a Docker container.
     ///
-    /// Runs the bundle command inside the container, which builds binaries
+    /// Runs the pre-built bundler binary inside the container, which builds binaries
     /// and creates the package artifact.
     ///
     /// # Arguments
     ///
     /// * `platform` - The package type to build
-    /// * `build` - Whether to build binaries before bundling
-    /// * `release` - Whether to use release mode
+    /// * `binary_name` - Name of the binary to bundle
+    /// * `version` - Version string for the package
     /// * `runtime_config` - Runtime configuration for output
     ///
     /// # Returns
@@ -88,8 +88,8 @@ impl ContainerBundler {
     pub async fn bundle_platform(
         &self,
         platform: PackageType,
-        build: bool,
-        release: bool,
+        binary_name: &str,
+        version: &str,
         runtime_config: &crate::cli::RuntimeConfig,
     ) -> Result<Vec<PathBuf>, ReleaseError> {
         let platform_str = platform_type_to_string(platform);
@@ -251,23 +251,17 @@ impl ContainerBundler {
 
         // Note: No --user flag on Windows (uses Dockerfile USER)
 
-        // Add image and cargo command
+        // Add image and bundler command (pre-built in image)
         docker_args.push(self.image_name.clone());
-        docker_args.push("cargo".to_string());
-        docker_args.push("run".to_string());
-        docker_args.push("-p".to_string());
-        docker_args.push("kodegen_bundler_release".to_string());
-        docker_args.push("--".to_string());
-        docker_args.push("bundle".to_string());
+        docker_args.push("kodegen_bundler_bundle".to_string());
+        docker_args.push("--repo-path".to_string());
+        docker_args.push("/workspace".to_string());
         docker_args.push("--platform".to_string());
         docker_args.push(platform_str.to_string());
-
-        if build {
-            docker_args.push("--build".to_string());
-        }
-        if release {
-            docker_args.push("--release".to_string());
-        }
+        docker_args.push("--binary-name".to_string());
+        docker_args.push(binary_name.to_string());
+        docker_args.push("--version".to_string());
+        docker_args.push(version.to_string());
 
         // Spawn docker process with both stdout/stderr piped for streaming + OOM detection
         let mut child = Command::new("docker")

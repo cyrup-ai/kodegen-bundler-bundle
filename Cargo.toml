@@ -21,13 +21,15 @@ license = "Apache-2.0 OR MIT"
 name = "kodegen_bundler_bundle"
 path = "src/main.rs"
 
-[lib]
-name = "kodegen_bundler_bundle"
-path = "src/lib.rs"
-
 [dependencies]
 # TOML parsing for package metadata
 toml = "0.9"
+
+# Semantic versioning
+semver = "1"
+
+# Timestamp handling for Docker image staleness detection
+chrono = "0.4"
 
 # CLI argument parsing
 clap = { version = "4", features = ["derive", "cargo", "env"] }
@@ -58,6 +60,10 @@ num_cpus = "1"
 
 # Path utilities
 path-absolutize = "3"
+
+# Code signing
+kodegen_bundler_sign = { path = "../kodegen-bundler-sign" }
+base64 = "0.22"
 
 # Bundler dependencies
 handlebars = "6"          # Template rendering
