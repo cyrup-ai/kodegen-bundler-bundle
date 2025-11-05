@@ -2,7 +2,7 @@
 name = "kodegen_bundler_bundle"
 version = "0.1.0"
 edition = "2024"
-description = "KODEGEN.ᴀɪ: Memory-efficient, Blazing-Fast, MCP tools for code generation agents."
+description = "Multi-platform bundler for creating native installers (.deb, .rpm, .dmg, .msi, AppImage)"
 authors = ["KODEGEN.ᴀɪ"]
 homepage = "https://kodegen.ai"
 repository = "https://github.com/cyrup-ai/kodegen-bundler-release"
@@ -18,38 +18,16 @@ keywords = [
 license = "Apache-2.0 OR MIT"
 
 [[bin]]
-name = "kodegen_bundler_release"
+name = "kodegen_bundler_bundle"
 path = "src/main.rs"
 
 [lib]
-name = "kodegen_bundler_release"
+name = "kodegen_bundler_bundle"
 path = "src/lib.rs"
 
 [dependencies]
-# Git operations using pure Rust (no CLI)
-gix = "0.74"
-# Explicit dependencies to fix Docker build transitive dependency resolution
-gix-lock = "19"
-gix-tempfile = "19"
-gix-utils = "0.3"
-
-# Shared Git operations package
-kodegen_tools_git = { version = "0.1" }
-
-# GitHub API integration for releases
-kodegen_tools_github = { version = "0.1" }
-
-# Code signing for macOS artifacts
-kodegen_bundler_sign = { version = "0.1" }
-
-# Binary content for asset upload
-bytes = "1"
-
-# Format-preserving TOML editing
-toml_edit = "0.23"
-
-# Semantic version parsing and manipulation
-semver = { version = "1", features = ["serde"] }
+# TOML parsing for package metadata
+toml = "0.9"
 
 # CLI argument parsing
 clap = { version = "4", features = ["derive", "cargo", "env"] }
@@ -61,24 +39,9 @@ thiserror = "2"
 # Async runtime for process execution
 tokio = { version = "1", features = ["full"] }
 
-# Async HTTP client
-reqwest = { version = "0.12", features = ["json", "stream"] }
-
-# Async utilities
-tokio-util = { version = "0.7", features = ["io"] }
-
-# JSON serialization for state persistence
+# JSON serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
-# Date and time handling for state tracking
-chrono = { version = "0.4", features = ["serde"] }
-
-# Dependency graph analysis
-petgraph = "0.8"
-
-# TOML parsing and manipulation
-toml = "0.9"
 
 # Process execution
 which = "8"
@@ -93,17 +56,8 @@ sysinfo = "0.37"
 # CPU count detection (for Docker container limits)
 num_cpus = "1"
 
-# Base64 encoding/decoding for certificate handling
-base64 = "0.22"
-
-# TLS support for GitHub API (octocrab/reqwest)
-rustls = { version = "0.23", features = ["ring"] }
-
 # Path utilities
 path-absolutize = "3"
-
-# Workspace integration 
-sugars_collections = { version = "0.5" }
 
 # Bundler dependencies
 handlebars = "6"          # Template rendering
