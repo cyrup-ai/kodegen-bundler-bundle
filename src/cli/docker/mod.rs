@@ -32,13 +32,14 @@
 
 mod artifact_manager;
 mod artifacts;
-mod bundler;
+pub mod bundler;
 mod container_runner;
 mod guard;
 mod image;
-mod limits;
+pub mod limits;
 mod oom_detector;
 mod platform;
 
 // Re-export public API
-// (Public API items removed - not used externally)
+pub use bundler::ContainerBundler;
+pub use limits::ContainerLimits;

@@ -7,6 +7,8 @@ mod devcontainer;
 
 use crate::bundler::{BundleBinary, Bundler, PackageSettings, PackageType, SettingsBuilder};
 use crate::cli::args::{Args, RuntimeConfig};
+use crate::cli::docker::bundler::ContainerBundler;
+use crate::cli::docker::limits::ContainerLimits;
 use crate::error::{BundlerError, CliError, Result};
 use crate::metadata::load_manifest;
 
@@ -127,22 +129,43 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         platform_display_name(&package_type)
     ));
 
-    // Step 9: Create Bundler and execute
-    let bundler = Bundler::new(settings).await?;
-    let artifacts = bundler.bundle().await?;
+    // Step 9: Bundle - use Docker if cross-platform, native if same platform
+    let artifact_paths = if needs_docker(&package_type) {
+        // Cross-platform: use Docker
+        runtime_config.verbose_println(&format!(
+            "   Cross-platform build detected (current: {}, required: {})",
+            std::env::consts::OS,
+            required_os_for_package(&package_type)
+        ));
+        runtime_config.verbose_println("   Using Docker container for bundling...");
+
+        let limits = ContainerLimits::from_args(&args)?;
+        let container_bundler = ContainerBundler::with_limits(args.repo_path.clone(), limits);
+        container_bundler
+            .bundle_platform(package_type, &args.binary_name, &args.version, &runtime_config)
+            .await?
+    } else {
+        // Native platform: use direct bundler
+        runtime_config.verbose_println("   Native platform build");
+        let bundler = Bundler::new(settings).await?;
+        let artifacts = bundler.bundle().await?;
+
+        // Extract paths from artifacts
+        artifacts.into_iter().flat_map(|a| a.paths).collect()
+    };
 
     // Step 10: Handle output
-    if artifacts.is_empty() {
+    if artifact_paths.is_empty() {
         runtime_config.warning_println("⚠️  No artifacts created");
         return Ok(1);
     }
 
-    runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifacts.len()));
+    runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifact_paths.len()));
 
     // Step 11: Handle --output-binary if specified
     if let Some(output_path) = &args.output_binary {
-        // Get the main artifact path (first path of first artifact)
-        let source_path = artifacts[0].paths.first().ok_or_else(|| {
+        // Get the main artifact path (first path)
+        let source_path = artifact_paths.first().ok_or_else(|| {
             BundlerError::Cli(CliError::ExecutionFailed {
                 command: "get artifact path".to_string(),
                 reason: "No artifact paths returned from bundler".to_string(),
@@ -197,11 +220,9 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         println!("{}", output_path.display());
     } else {
         // Legacy behavior: output artifact paths in their original locations
-        for artifact in &artifacts {
-            for path in &artifact.paths {
-                println!("{}", path.display());
-                runtime_config.verbose_println(&format!("   Artifact: {}", path.display()));
-            }
+        for path in &artifact_paths {
+            println!("{}", path.display());
+            runtime_config.verbose_println(&format!("   Artifact: {}", path.display()));
         }
     }
 
@@ -236,6 +257,22 @@ fn platform_display_name(package_type: &PackageType) -> &'static str {
         PackageType::MacOsBundle => "macOS Application Bundle (.app)",
         PackageType::Nsis => "Windows NSIS Installer (.exe)",
     }
+}
+
+/// Determine which host OS is required for a package type
+fn required_os_for_package(package_type: &PackageType) -> &'static str {
+    match package_type {
+        PackageType::Deb | PackageType::Rpm | PackageType::AppImage => "linux",
+        PackageType::Dmg | PackageType::MacOsBundle => "macos",
+        PackageType::Nsis => "windows",
+    }
+}
+
+/// Check if Docker is needed for cross-platform bundling
+fn needs_docker(package_type: &PackageType) -> bool {
+    let required_os = required_os_for_package(package_type);
+    let current_os = std::env::consts::OS;
+    required_os != current_os
 }
 
 #[cfg(test)]
