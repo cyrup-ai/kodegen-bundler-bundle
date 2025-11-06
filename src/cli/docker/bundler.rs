@@ -124,16 +124,16 @@ impl ContainerBundler {
         // Discover and move artifacts
         let artifact_mgr = ArtifactManager::new(workspace_path.clone());
         let artifacts =
-            artifact_mgr.discover_artifacts(&temp_target_dir, platform, runtime_config)?;
+            artifact_mgr.discover_artifacts(&temp_target_dir, platform, runtime_config).await?;
         let artifacts = artifact_mgr.move_artifacts_to_final(
             artifacts,
             &temp_target_dir,
             platform,
             runtime_config,
-        )?;
+        ).await?;
 
         // Clean up temporary directory
-        artifact_mgr.cleanup_temp_directory(&temp_target_dir, runtime_config);
+        artifact_mgr.cleanup_temp_directory(&temp_target_dir, runtime_config).await;
 
         Ok(artifacts)
     }
@@ -247,6 +247,9 @@ impl ContainerBundler {
             Err(detector
                 .format_oom_error(platform, stderr_lines, exit_code, container_name)
                 .await)
+        } else if exit_code == 137 {
+            // Special handling for SIGKILL without OOM evidence
+            Err(detector.format_sigkill_error(platform, stderr_lines))
         } else {
             Err(detector.format_generic_error(platform, exit_code, stderr_lines))
         }

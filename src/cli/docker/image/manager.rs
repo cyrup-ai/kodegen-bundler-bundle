@@ -10,6 +10,67 @@ use super::builder::build_docker_image;
 use super::config::BUILDER_IMAGE_NAME;
 use super::staleness::{get_image_age_days, is_image_up_to_date};
 
+/// Checks if Docker daemon is responsive.
+///
+/// Performs a fast pre-flight check using `docker version` to verify the Docker daemon
+/// is running and responsive. This prevents hangs when the daemon is deadlocked or
+/// in an unresponsive state.
+///
+/// # Returns
+///
+/// * `Ok(())` - Docker daemon is responsive
+/// * `Err` - Docker daemon is not responding, not installed, or hung
+async fn check_docker_responsive() -> Result<(), BundlerError> {
+    // Use 'docker version' which is faster and simpler than 'images'
+    let result = timeout(
+        Duration::from_secs(3), // Very short timeout
+        Command::new("docker")
+            .args(["version", "--format", "{{.Server.Version}}"])
+            .output(),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(output)) if output.status.success() => Ok(()),
+        Ok(Ok(output)) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(BundlerError::Cli(CliError::ExecutionFailed {
+                command: "docker version".to_string(),
+                reason: format!(
+                    "Docker daemon is not responding correctly:\n{}",
+                    stderr
+                ),
+            }))
+        }
+        Ok(Err(e)) => Err(BundlerError::Cli(CliError::ExecutionFailed {
+            command: "docker version".to_string(),
+            reason: format!(
+                "Cannot execute docker command: {}\n\
+                 \n\
+                 Possible causes:\n\
+                 • Docker is not installed\n\
+                 • Docker daemon is not running\n\
+                 • Docker is not in PATH\n\
+                 \n\
+                 Try: docker version",
+                e
+            ),
+        })),
+        Err(_) => Err(BundlerError::Cli(CliError::ExecutionFailed {
+            command: "docker version".to_string(),
+            reason: "Docker health check timed out after 3 seconds.\n\
+                     \n\
+                     The Docker daemon appears to be hung or unresponsive.\n\
+                     \n\
+                     Troubleshooting:\n\
+                     • Check: docker ps\n\
+                     • Restart Docker daemon: sudo systemctl restart docker\n\
+                     • Check logs: journalctl -u docker.service"
+                .to_string(),
+        })),
+    }
+}
+
 /// Ensures the builder Docker image is built and up-to-date.
 ///
 /// Checks if the image exists and whether it's stale (Dockerfile modified after image creation).
@@ -30,6 +91,9 @@ pub async fn ensure_image_built(
     force_rebuild: bool,
     runtime_config: &crate::cli::RuntimeConfig,
 ) -> Result<(), BundlerError> {
+    // Fast pre-flight check to ensure Docker daemon is responsive
+    check_docker_responsive().await?;
+
     let dockerfile_path = workspace_path.join(".devcontainer/Dockerfile");
 
     if !dockerfile_path.exists() {
@@ -73,7 +137,19 @@ pub async fn ensure_image_built(
     .map_err(|_| {
         BundlerError::Cli(CliError::ExecutionFailed {
             command: "docker images".to_string(),
-            reason: "Docker image check timed out after 10 seconds".to_string(),
+            reason: "Docker image check timed out after 10 seconds.\n\
+                     \n\
+                     This usually indicates:\n\
+                     • Docker daemon is hung or crashed\n\
+                     • Docker data directory is on slow/failed storage\n\
+                     • System is under extreme load\n\
+                     \n\
+                     Quick fixes:\n\
+                     1. Check Docker: docker ps\n\
+                     2. Restart daemon: sudo systemctl restart docker\n\
+                     3. Check disk: df -h /var/lib/docker\n\
+                     4. Check logs: journalctl -u docker -n 50"
+                .to_string(),
         })
     })?
     .map_err(|e| {

@@ -119,8 +119,8 @@ pub async fn copy_file(from: &Path, to: &Path) -> Result<()> {
 /// Preserves symlinks on platforms that support them.
 /// Fails if the source path is not a directory or doesn't exist,
 /// or if the destination path already exists.
-#[allow(dead_code)]
 pub async fn copy_dir(from: &Path, to: &Path) -> Result<()> {
+    // Validate in async context (cheap, doesn't need spawn_blocking)
     if !from.exists() {
         return Err(crate::bundler::error::Error::GenericError(format!(
             "{from:?} does not exist"
@@ -131,31 +131,48 @@ pub async fn copy_dir(from: &Path, to: &Path) -> Result<()> {
             "{from:?} is not a Directory"
         )));
     }
-    if let Some(parent) = to.parent() {
-        fs::create_dir_all(parent).await?;
-    }
 
-    for entry in walkdir::WalkDir::new(from) {
-        let entry = entry?;
-        debug_assert!(entry.path().starts_with(from));
-        let rel_path = entry.path().strip_prefix(from)?;
-        let dest_path = to.join(rel_path);
+    // Clone paths for move into blocking closure
+    let from = from.to_path_buf();
+    let to = to.to_path_buf();
 
-        if entry.file_type().is_symlink() {
-            let target = fs::read_link(entry.path()).await?;
-            if entry.path().is_dir() {
-                symlink_dir(&target, &dest_path)?;
-            } else {
-                symlink_file(&target, &dest_path)?;
-            }
-        } else if entry.file_type().is_dir() {
-            fs::create_dir_all(dest_path).await?;
-        } else {
-            fs::copy(entry.path(), dest_path).await?;
+    // Offload blocking work to dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        // Create destination parent (all sync from here)
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent)?;
         }
-    }
 
-    Ok(())
+        // Blocking iteration is OK in spawn_blocking
+        for entry in walkdir::WalkDir::new(&from) {
+            let entry = entry?;
+            debug_assert!(entry.path().starts_with(&from));
+            let rel_path = entry.path().strip_prefix(&from)?;
+            let dest_path = to.join(rel_path);
+
+            if entry.file_type().is_symlink() {
+                let target = std::fs::read_link(entry.path())?;
+                if entry.path().is_dir() {
+                    symlink_dir(&target, &dest_path)?;
+                } else {
+                    symlink_file(&target, &dest_path)?;
+                }
+            } else if entry.file_type().is_dir() {
+                std::fs::create_dir_all(dest_path)?;
+            } else {
+                std::fs::copy(entry.path(), dest_path)?;
+            }
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| {
+        crate::bundler::error::Error::GenericError(format!(
+            "Directory copy task panicked: {}",
+            e
+        ))
+    })?
 }
 
 /// Copies user-defined files specified in the configuration file to the package.

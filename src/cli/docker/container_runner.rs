@@ -90,7 +90,7 @@ impl ContainerRunner {
             "run".to_string(),
             "--name".to_string(),
             container_name.to_string(),
-            "--rm".to_string(),
+            // Note: No --rm flag - ContainerGuard handles cleanup after OOM check
             // SECURITY: Prevent privilege escalation in container
             "--security-opt".to_string(),
             "no-new-privileges".to_string(),

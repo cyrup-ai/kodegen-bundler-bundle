@@ -53,17 +53,31 @@ impl Drop for ContainerGuard {
                 }
             }
             Ok(None) => {
-                // Timeout reached - Docker daemon is unresponsive
-                // Kill the hanging docker command to prevent zombie process
-                let _ = child.kill();
-                let _ = child.wait(); // Reap zombie process
+                // Timeout reached
+                // First, check if process exited naturally during timeout
+                match child.try_wait() {
+                    Ok(Some(_status)) => {
+                        // Process already exited - no need to kill
+                        // This is not an error, just slow completion
+                    }
+                    Ok(None) => {
+                        // Process still running - kill it
+                        let _ = child.kill();
+                        let _ = child.wait();
 
-                eprintln!(
-                    "Warning: Timed out cleaning up container '{}' after {} seconds. \
-                     Docker daemon may be down.",
-                    self.name,
-                    timeout.as_secs()
-                );
+                        eprintln!(
+                            "Warning: Timed out cleaning up container '{}' after {} seconds. \
+                             Docker daemon may be unresponsive.",
+                            self.name,
+                            timeout.as_secs()
+                        );
+                    }
+                    Err(_) => {
+                        // Can't determine state - try killing anyway
+                        let _ = child.kill();
+                        let _ = child.wait();
+                    }
+                }
             }
             Err(_) => {
                 // Error while waiting (rare)

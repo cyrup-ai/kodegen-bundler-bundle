@@ -65,38 +65,4 @@ impl RetryConfig {
         }
     }
 
-    /// Validate retry counts are reasonable
-    pub fn validate(&self) -> Result<(), String> {
-        if self.git_operations > 10 {
-            return Err(format!(
-                "git_operations retry count too high: {} (max: 10)",
-                self.git_operations
-            ));
-        }
-        if self.github_api > 20 {
-            return Err(format!(
-                "github_api retry count too high: {} (max: 20)",
-                self.github_api
-            ));
-        }
-        if self.file_uploads > 20 {
-            return Err(format!(
-                "file_uploads retry count too high: {} (max: 20)",
-                self.file_uploads
-            ));
-        }
-        if self.release_publishing > 10 {
-            return Err(format!(
-                "release_publishing retry count too high: {} (max: 10)",
-                self.release_publishing
-            ));
-        }
-        if self.cleanup_operations > 10 {
-            return Err(format!(
-                "cleanup_operations retry count too high: {} (max: 10)",
-                self.cleanup_operations
-            ));
-        }
-        Ok(())
-    }
 }
