@@ -186,15 +186,18 @@ impl ContainerRunner {
             })
         });
 
-        // Stream stdout in real-time (foreground task)
-        if let Some(stdout) = child.stdout.take() {
-            let reader = BufReader::new(stdout);
-            let mut lines = reader.lines();
+        // Spawn background task to stream stdout in real-time
+        let stdout_handle = child.stdout.take().map(|stdout| {
+            let runtime_config = runtime_config.clone();
+            tokio::spawn(async move {
+                let reader = BufReader::new(stdout);
+                let mut lines = reader.lines();
 
-            while let Ok(Some(line)) = lines.next_line().await {
-                runtime_config.indent(&line);
-            }
-        }
+                while let Ok(Some(line)) = lines.next_line().await {
+                    runtime_config.indent(&line);
+                }
+            })
+        });
 
         // Wait for child process completion with timeout
         let status = tokio::time::timeout(DOCKER_RUN_TIMEOUT, child.wait()).await;
@@ -239,6 +242,16 @@ impl ContainerRunner {
                 }));
             }
         };
+
+        // Wait for stdout task to complete
+        if let Some(handle) = stdout_handle {
+            if let Err(join_err) = handle.await {
+                runtime_config.warn(&format!(
+                    "Warning: Failed to complete stdout streaming: {}",
+                    join_err
+                ));
+            }
+        }
 
         // Retrieve captured stderr from background task
         let stderr_lines = if let Some(handle) = stderr_handle {

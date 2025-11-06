@@ -60,34 +60,46 @@ impl ContainerLimits {
     }
 
     /// Parse memory string like "4g", "4096m", "4G", "2048M" to megabytes.
+    /// Supports decimal values like "4.5g", "1.5gb", "512.5m".
     #[allow(dead_code)] // Used by from_cli, kept for future CLI argument parsing
     fn parse_memory_to_mb(memory: &str) -> Result<u64, String> {
         let memory = memory.trim().to_lowercase();
 
-        if let Some(stripped) = memory.strip_suffix("gb") {
-            let val: u64 = stripped
-                .parse()
-                .map_err(|_| format!("Invalid memory value: {}", memory))?;
-            Ok(val * 1024)
+        let (value_str, multiplier) = if let Some(stripped) = memory.strip_suffix("gb") {
+            (stripped, 1024.0)
         } else if let Some(stripped) = memory.strip_suffix("g") {
-            let val: u64 = stripped
-                .parse()
-                .map_err(|_| format!("Invalid memory value: {}", memory))?;
-            Ok(val * 1024)
+            (stripped, 1024.0)
         } else if let Some(stripped) = memory.strip_suffix("mb") {
-            stripped
-                .parse()
-                .map_err(|_| format!("Invalid memory value: {}", memory))
+            (stripped, 1.0)
         } else if let Some(stripped) = memory.strip_suffix("m") {
-            stripped
-                .parse()
-                .map_err(|_| format!("Invalid memory value: {}", memory))
+            (stripped, 1.0)
         } else {
-            // No unit - assume megabytes
-            memory
-                .parse()
-                .map_err(|_| format!("Invalid memory value: {}", memory))
+            (&memory[..], 1.0)
+        };
+
+        // Parse as f64 to handle decimals
+        let value: f64 = value_str
+            .parse()
+            .map_err(|_| format!("Invalid memory value: '{}'", memory))?;
+
+        // Validate range
+        if value < 0.0 {
+            return Err(format!("Memory value must be positive: {}", memory));
         }
+
+        if value.is_infinite() || value.is_nan() {
+            return Err(format!("Invalid memory value: {}", memory));
+        }
+
+        // Convert to MB and round to nearest integer
+        let mb = (value * multiplier).round();
+
+        // Check if result fits in u64
+        if mb > u64::MAX as f64 {
+            return Err(format!("Memory value too large: {}", memory));
+        }
+
+        Ok(mb as u64)
     }
 
     /// Creates limits from CLI arguments.
@@ -405,5 +417,46 @@ mod tests {
     fn test_from_cli_valid_pids() {
         let result = ContainerLimits::from_cli("4g".to_string(), None, None, 500);
         assert!(result.is_ok());
+    }
+
+    // Decimal value tests
+    #[test]
+    fn test_parse_memory_decimal_g() {
+        assert_eq!(ContainerLimits::parse_memory_to_mb("4.5g"), Ok(4608)); // 4.5 * 1024
+    }
+
+    #[test]
+    fn test_parse_memory_decimal_gb() {
+        assert_eq!(ContainerLimits::parse_memory_to_mb("1.5gb"), Ok(1536));
+    }
+
+    #[test]
+    fn test_parse_memory_decimal_m() {
+        assert_eq!(ContainerLimits::parse_memory_to_mb("512.5m"), Ok(513)); // Rounded
+    }
+
+    #[test]
+    fn test_parse_memory_half_gig() {
+        assert_eq!(ContainerLimits::parse_memory_to_mb("0.5g"), Ok(512));
+    }
+
+    #[test]
+    fn test_parse_memory_quarter_gig() {
+        assert_eq!(ContainerLimits::parse_memory_to_mb("0.25g"), Ok(256));
+    }
+
+    #[test]
+    fn test_parse_memory_invalid_decimal() {
+        assert!(ContainerLimits::parse_memory_to_mb("4.5.5g").is_err());
+    }
+
+    #[test]
+    fn test_parse_memory_negative() {
+        assert!(ContainerLimits::parse_memory_to_mb("-1g").is_err());
+    }
+
+    #[test]
+    fn test_parse_memory_infinity() {
+        assert!(ContainerLimits::parse_memory_to_mb("inf").is_err());
     }
 }
