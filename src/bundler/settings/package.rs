@@ -19,27 +19,31 @@
 ///     default_run: Some("myapp".into()),
 /// };
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct PackageSettings {
     /// Product name displayed to users.
     ///
     /// This is the human-readable name shown in installers and system menus.
     /// Usually derived from `Cargo.toml` `package.name`.
+    #[serde(default)]
     pub product_name: String,
 
     /// Version string in semantic versioning format.
     ///
     /// Example: "1.0.0", "0.2.3-beta.1"
+    #[serde(default)]
     pub version: String,
 
     /// Brief description of the application.
     ///
     /// Used in package managers and installer descriptions.
+    #[serde(default)]
     pub description: String,
 
     /// Homepage URL for the application.
     ///
     /// Default: None
+    #[serde(default)]
     pub homepage: Option<String>,
 
     /// List of package authors.
@@ -47,6 +51,7 @@ pub struct PackageSettings {
     /// Format: "Name <email@example.com>"
     ///
     /// Default: None
+    #[serde(default)]
     pub authors: Option<Vec<String>>,
 
     /// Default binary to run when multiple binaries exist.
@@ -55,5 +60,6 @@ pub struct PackageSettings {
     /// should be the primary executable.
     ///
     /// Default: None (uses first binary)
+    #[serde(default)]
     pub default_run: Option<String>,
 }

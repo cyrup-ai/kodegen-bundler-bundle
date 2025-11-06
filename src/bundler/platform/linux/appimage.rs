@@ -1,7 +1,6 @@
 //! AppImage bundler - portable Linux applications.
 #![allow(dead_code)] // Public API - items may be used by external consumers
 
-
 use crate::{
     bail,
     bundler::{
@@ -10,9 +9,7 @@ use crate::{
         utils::http,
     },
 };
-use std::{
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
 const LINUXDEPLOY_BASE_URL: &str =
@@ -52,18 +49,23 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     let output_dir = settings.project_out_directory().join("bundle/appimage");
     let tools_dir = output_dir.join(".tools");
 
-    tokio::fs::create_dir_all(&tools_dir).await.fs_context("creating tools directory", &tools_dir)?;
+    tokio::fs::create_dir_all(&tools_dir)
+        .await
+        .fs_context("creating tools directory", &tools_dir)?;
 
     // 3. Download linuxdeploy
-    let linuxdeploy =
-        download_linuxdeploy(&tools_dir, arch).await.context("failed to download linuxdeploy tool")?;
+    let linuxdeploy = download_linuxdeploy(&tools_dir, arch)
+        .await
+        .context("failed to download linuxdeploy tool")?;
 
     // 4. Create AppDir structure
     let app_dir = output_dir.join(format!("{}.AppDir", settings.product_name()));
 
     // Clean any existing AppDir
     if app_dir.exists() {
-        tokio::fs::remove_dir_all(&app_dir).await.fs_context("removing old AppDir", &app_dir)?;
+        tokio::fs::remove_dir_all(&app_dir)
+            .await
+            .fs_context("removing old AppDir", &app_dir)?;
     }
 
     // Create directory structure
@@ -72,7 +74,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     let lib_dir = usr_dir.join("lib");
 
     for dir in [&usr_dir, &bin_dir, &lib_dir] {
-        tokio::fs::create_dir_all(dir).await.fs_context("creating AppDir structure", dir)?;
+        tokio::fs::create_dir_all(dir)
+            .await
+            .fs_context("creating AppDir structure", dir)?;
     }
 
     // 5. Copy binaries
@@ -80,7 +84,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         let src = settings.binary_path(binary);
         let dst = bin_dir.join(binary.name());
 
-        tokio::fs::copy(&src, &dst).await.fs_context("copying binary", &dst)?;
+        tokio::fs::copy(&src, &dst)
+            .await
+            .fs_context("copying binary", &dst)?;
 
         // Ensure executable permissions
         #[cfg(unix)]
@@ -103,7 +109,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
             let icon_name = format!("{}.png", settings.product_name());
             let dst_icon = app_dir.join(&icon_name);
 
-            tokio::fs::copy(icon_path, &dst_icon).await.fs_context("copying icon", &dst_icon)?;
+            tokio::fs::copy(icon_path, &dst_icon)
+                .await
+                .fs_context("copying icon", &dst_icon)?;
 
             // Create .DirIcon symlink (required by AppImage spec)
             #[cfg(unix)]
@@ -132,7 +140,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         .args(["--appdir", app_dir_str, "--output", "appimage"])
         .status()
         .await
-        .map_err(|e| crate::bundler::Error::GenericError(format!("Failed to execute linuxdeploy: {}", e)))?;
+        .map_err(|e| {
+            crate::bundler::Error::GenericError(format!("Failed to execute linuxdeploy: {}", e))
+        })?;
 
     if !status.success() {
         bail!("linuxdeploy failed with exit code: {:?}", status.code());
@@ -169,7 +179,9 @@ async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
     let url = format!("{}/{}", LINUXDEPLOY_BASE_URL, tool_name);
     let data = http::download(&url).await?;
 
-    tokio::fs::write(&tool_path, data).await.fs_context("writing linuxdeploy tool", &tool_path)?;
+    tokio::fs::write(&tool_path, data)
+        .await
+        .fs_context("writing linuxdeploy tool", &tool_path)?;
 
     // Make executable on Unix
     #[cfg(unix)]
@@ -186,11 +198,14 @@ async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
 /// Generates a freedesktop.org compliant desktop entry with application metadata.
 async fn create_desktop_file(settings: &Settings, app_dir: &Path) -> Result<()> {
     let desktop_file = app_dir.join(format!("{}.desktop", settings.product_name()));
-    let mut file = tokio::fs::File::create(&desktop_file).await.fs_context("creating desktop file", &desktop_file)?;
+    let mut file = tokio::fs::File::create(&desktop_file)
+        .await
+        .fs_context("creating desktop file", &desktop_file)?;
 
     file.write_all(b"[Desktop Entry]\n").await?;
     file.write_all(b"Type=Application\n").await?;
-    file.write_all(format!("Name={}\n", settings.product_name()).as_bytes()).await?;
+    file.write_all(format!("Name={}\n", settings.product_name()).as_bytes())
+        .await?;
 
     // Find main binary name
     let main_binary = settings
@@ -199,18 +214,22 @@ async fn create_desktop_file(settings: &Settings, app_dir: &Path) -> Result<()> 
         .find(|b| b.main())
         .context("no main binary found")?;
 
-    file.write_all(format!("Exec={}\n", main_binary.name()).as_bytes()).await?;
-    file.write_all(format!("Icon={}\n", settings.product_name()).as_bytes()).await?;
+    file.write_all(format!("Exec={}\n", main_binary.name()).as_bytes())
+        .await?;
+    file.write_all(format!("Icon={}\n", settings.product_name()).as_bytes())
+        .await?;
 
     // Optional fields from bundle settings
     let bundle = settings.bundle_settings();
 
     if !settings.description().is_empty() {
-        file.write_all(format!("Comment={}\n", settings.description()).as_bytes()).await?;
+        file.write_all(format!("Comment={}\n", settings.description()).as_bytes())
+            .await?;
     }
 
     if let Some(category) = &bundle.category {
-        file.write_all(format!("Categories={}\n", category).as_bytes()).await?;
+        file.write_all(format!("Categories={}\n", category).as_bytes())
+            .await?;
     }
 
     file.write_all(b"Terminal=false\n").await?;

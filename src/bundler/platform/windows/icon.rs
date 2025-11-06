@@ -55,7 +55,9 @@ pub async fn create_ico_file(icons: &[IconInfo], output: &Path) -> Result<()> {
     }
 
     // Write ICO file
-    let tokio_file = tokio::fs::File::create(output).await.fs_context("creating ICO output file", output)?;
+    let tokio_file = tokio::fs::File::create(output)
+        .await
+        .fs_context("creating ICO output file", output)?;
     let file = tokio_file.into_std().await;
     icon_dir
         .write(file)

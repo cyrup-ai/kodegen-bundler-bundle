@@ -19,7 +19,8 @@
 /// let arch = Arch::X86_64;
 /// println!("Target architecture: {:?}", arch);
 /// ```
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Arch {
     /// x86_64 / AMD64 (64-bit) - Most common desktop/server architecture
     X86_64,

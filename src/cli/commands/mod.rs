@@ -25,15 +25,17 @@ use crate::metadata::load_manifest;
 /// 8. Return exit code 0 on success, 1 on error
 pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Result<i32> {
     // Step 1: Validate arguments
-    args.validate().map_err(|e| BundlerError::Cli(CliError::InvalidArguments {
-        reason: e,
-    }))?;
+    args.validate()
+        .map_err(|e| BundlerError::Cli(CliError::InvalidArguments { reason: e }))?;
 
-    runtime_config.verbose_println(&format!("📦 Bundler starting for platform: {}", args.platform));
+    runtime_config.verbose_println(&format!(
+        "📦 Bundler starting for platform: {}",
+        args.platform
+    ));
     runtime_config.verbose_println(&format!("   Repository: {}", args.repo_path.display()));
     runtime_config.verbose_println(&format!("   Binary: {}", args.binary_name));
     runtime_config.verbose_println(&format!("   Version: {}", args.version));
-    
+
     // Step 2: Load Cargo.toml metadata
     let cargo_toml = args.repo_path.join("Cargo.toml");
     if !cargo_toml.exists() {
@@ -41,14 +43,17 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             reason: format!("Cargo.toml not found at {}", cargo_toml.display()),
         }));
     }
-    
+
     let manifest = load_manifest(&cargo_toml)?;
-    runtime_config.verbose_println(&format!("   Loaded manifest: {} v{}", manifest.metadata.name, manifest.metadata.version));
-    
+    runtime_config.verbose_println(&format!(
+        "   Loaded manifest: {} v{}",
+        manifest.metadata.name, manifest.metadata.version
+    ));
+
     // Step 3: Build binary if needed
     if !args.no_build {
         runtime_config.section("🔨 Building binary...");
-        
+
         let build_status = std::process::Command::new("cargo")
             .arg("build")
             .arg("--release")
@@ -56,39 +61,44 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             .arg(&args.binary_name)
             .current_dir(&args.repo_path)
             .status()
-            .map_err(|e| BundlerError::Cli(CliError::ExecutionFailed {
-                command: "cargo build".to_string(),
-                reason: e.to_string(),
-            }))?;
-        
+            .map_err(|e| {
+                BundlerError::Cli(CliError::ExecutionFailed {
+                    command: "cargo build".to_string(),
+                    reason: e.to_string(),
+                })
+            })?;
+
         if !build_status.success() {
             return Err(BundlerError::Cli(CliError::ExecutionFailed {
                 command: "cargo build".to_string(),
                 reason: format!("Build failed with exit code: {:?}", build_status.code()),
             }));
         }
-        
+
         runtime_config.verbose_println("   ✓ Build completed");
     } else {
         runtime_config.verbose_println("   Skipping build (--no-build specified)");
     }
-    
+
     // Step 4: Parse platform string to PackageType
     let package_type = parse_platform_string(&args.platform)?;
     runtime_config.verbose_println(&format!("   Package type: {:?}", package_type));
-    
+
     // Step 5: Determine binary path
     let target_dir = args.repo_path.join("target").join("release");
     let binary_path = target_dir.join(&args.binary_name);
-    
+
     if !binary_path.exists() {
         return Err(BundlerError::Cli(CliError::InvalidArguments {
-            reason: format!("Binary not found at {}. Did you forget to build?", binary_path.display()),
+            reason: format!(
+                "Binary not found at {}. Did you forget to build?",
+                binary_path.display()
+            ),
         }));
     }
-    
+
     runtime_config.verbose_println(&format!("   Binary path: {}", binary_path.display()));
-    
+
     // Step 6: Create PackageSettings from metadata
     let package_settings = PackageSettings {
         product_name: manifest.metadata.name.clone(),
@@ -98,11 +108,11 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         authors: Some(manifest.metadata.authors.clone()),
         default_run: Some(args.binary_name.clone()),
     };
-    
+
     // Step 7: Create BundleBinary
     let bundle_binary = BundleBinary::new(binary_path.to_string_lossy().to_string(), true)
         .set_src_path(Some(binary_path.to_string_lossy().to_string()));
-    
+
     // Step 8: Build Settings via SettingsBuilder
     let settings = SettingsBuilder::new()
         .project_out_directory(&target_dir)
@@ -111,57 +121,65 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         .binaries(vec![bundle_binary])
         .package_types(vec![package_type])
         .build()?;
-    
-    runtime_config.section(&format!("📦 Creating {} package...", platform_display_name(&package_type)));
-    
+
+    runtime_config.section(&format!(
+        "📦 Creating {} package...",
+        platform_display_name(&package_type)
+    ));
+
     // Step 9: Create Bundler and execute
     let bundler = Bundler::new(settings).await?;
     let artifacts = bundler.bundle().await?;
-    
+
     // Step 10: Handle output
     if artifacts.is_empty() {
         runtime_config.warning_println("⚠️  No artifacts created");
         return Ok(1);
     }
-    
+
     runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifacts.len()));
-    
+
     // Step 11: Handle --output-binary if specified
     if let Some(output_path) = &args.output_binary {
         // Get the main artifact path (first path of first artifact)
-        let source_path = artifacts[0].paths.first()
-            .ok_or_else(|| BundlerError::Cli(CliError::ExecutionFailed {
+        let source_path = artifacts[0].paths.first().ok_or_else(|| {
+            BundlerError::Cli(CliError::ExecutionFailed {
                 command: "get artifact path".to_string(),
                 reason: "No artifact paths returned from bundler".to_string(),
-            }))?;
-        
+            })
+        })?;
+
         runtime_config.verbose_println(&format!(
             "   Moving artifact:\n      from: {}\n      to:   {}",
             source_path.display(),
             output_path.display()
         ));
-        
+
         // Bundler responsibility: create parent directories
         if let Some(parent) = output_path.parent() {
-            tokio::fs::create_dir_all(parent).await
-                .map_err(|e| BundlerError::Cli(CliError::ExecutionFailed {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                BundlerError::Cli(CliError::ExecutionFailed {
                     command: "create output directory".to_string(),
                     reason: format!("Failed to create {}: {}", parent.display(), e),
-                }))?;
+                })
+            })?;
         }
-        
+
         // Move artifact to specified output path (simple rename, same filesystem)
-        tokio::fs::rename(source_path, output_path).await
-            .map_err(|e| BundlerError::Cli(CliError::ExecutionFailed {
-                command: "move artifact".to_string(),
-                reason: format!(
-                    "Failed to move artifact from {} to {}: {}",
-                    source_path.display(),
-                    output_path.display(),
-                    e
-                ),
-            }))?;
-        
+        tokio::fs::rename(source_path, output_path)
+            .await
+            .map_err(|e| {
+                BundlerError::Cli(CliError::ExecutionFailed {
+                    command: "move artifact".to_string(),
+                    reason: format!(
+                        "Failed to move artifact from {} to {}: {}",
+                        source_path.display(),
+                        output_path.display(),
+                        e
+                    ),
+                })
+            })?;
+
         // Contract enforcement: verify file exists at destination
         if !output_path.exists() {
             return Err(BundlerError::Cli(CliError::ExecutionFailed {
@@ -172,12 +190,9 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
                 ),
             }));
         }
-        
-        runtime_config.success_println(&format!(
-            "✓ Artifact at: {}",
-            output_path.display()
-        ));
-        
+
+        runtime_config.success_println(&format!("✓ Artifact at: {}", output_path.display()));
+
         // Output the final path to stdout (for diagnostics)
         println!("{}", output_path.display());
     } else {
@@ -189,7 +204,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             }
         }
     }
-    
+
     Ok(0)
 }
 
@@ -229,12 +244,30 @@ mod tests {
 
     #[test]
     fn test_parse_platform_string() {
-        assert!(matches!(parse_platform_string("deb").unwrap(), PackageType::Deb));
-        assert!(matches!(parse_platform_string("DMG").unwrap(), PackageType::Dmg));
-        assert!(matches!(parse_platform_string("macos-bundle").unwrap(), PackageType::MacOsBundle));
-        assert!(matches!(parse_platform_string("app").unwrap(), PackageType::MacOsBundle));
-        assert!(matches!(parse_platform_string("nsis").unwrap(), PackageType::Nsis));
-        assert!(matches!(parse_platform_string("exe").unwrap(), PackageType::Nsis));
+        assert!(matches!(
+            parse_platform_string("deb").unwrap(),
+            PackageType::Deb
+        ));
+        assert!(matches!(
+            parse_platform_string("DMG").unwrap(),
+            PackageType::Dmg
+        ));
+        assert!(matches!(
+            parse_platform_string("macos-bundle").unwrap(),
+            PackageType::MacOsBundle
+        ));
+        assert!(matches!(
+            parse_platform_string("app").unwrap(),
+            PackageType::MacOsBundle
+        ));
+        assert!(matches!(
+            parse_platform_string("nsis").unwrap(),
+            PackageType::Nsis
+        ));
+        assert!(matches!(
+            parse_platform_string("exe").unwrap(),
+            PackageType::Nsis
+        ));
         assert!(parse_platform_string("invalid").is_err());
     }
 }

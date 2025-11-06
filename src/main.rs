@@ -3,8 +3,8 @@
 //! This binary creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage)
 //! from Rust binaries with proper error handling and artifact verification.
 
-mod cli;
 mod bundler;
+mod cli;
 mod error;
 mod metadata;
 

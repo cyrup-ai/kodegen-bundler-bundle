@@ -27,7 +27,7 @@ use std::path::PathBuf;
 ///
 /// - [`WixSettings`] - WiX MSI installer configuration
 /// - [`NsisSettings`] - NSIS installer configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct WindowsSettings {
     // === Signing Configuration ===
     /// Path to certificate file (.pem, .crt, .pfx).
@@ -35,6 +35,7 @@ pub struct WindowsSettings {
     /// For PKCS#12 (.pfx), also set `password`.
     ///
     /// Default: None (unsigned)
+    #[serde(default)]
     pub cert_path: Option<PathBuf>,
 
     /// Path to private key file (.pem, .key).
@@ -42,11 +43,13 @@ pub struct WindowsSettings {
     /// Not needed for PKCS#12 (.pfx) files which contain both cert and key.
     ///
     /// Default: None
+    #[serde(default)]
     pub key_path: Option<PathBuf>,
 
     /// Password for encrypted key or PKCS#12 file.
     ///
     /// Default: None
+    #[serde(default)]
     pub password: Option<String>,
 
     /// Timestamp server URL for signature timestamping.
@@ -54,6 +57,7 @@ pub struct WindowsSettings {
     /// Recommended: "http://timestamp.digicert.com"
     ///
     /// Default: None (uses default timestamp server)
+    #[serde(default)]
     pub timestamp_url: Option<String>,
 
     // === Legacy/Alternative Fields ===
@@ -62,17 +66,20 @@ pub struct WindowsSettings {
     /// Example: "signtool sign /sha1 ABC123... %1"
     ///
     /// Default: None (uses osslsigncode)
+    #[serde(default)]
     pub sign_command: Option<String>,
 
     // === Installer Settings ===
     /// WiX MSI installer settings.
     ///
     /// See [`WixSettings`] for details.
+    #[serde(default)]
     pub wix: WixSettings,
 
     /// NSIS EXE installer settings.
     ///
     /// See [`NsisSettings`] for details.
+    #[serde(default)]
     pub nsis: NsisSettings,
 }
 
@@ -94,48 +101,56 @@ pub struct WindowsSettings {
 ///
 /// - [`WindowsSettings`] - Windows installer configuration
 /// - [`NsisSettings`] - NSIS installer configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct WixSettings {
     /// Supported installer languages.
     ///
     /// Example: `["en-US", "de-DE", "fr-FR"]`
     ///
     /// Default: Empty (uses "en-US")
+    #[serde(default)]
     pub language: Vec<String>,
 
     /// Path to custom WiX template (.wxs file).
     ///
     /// Default: None (uses built-in template)
+    #[serde(default)]
     pub template: Option<PathBuf>,
 
     /// Paths to WiX fragment files to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub fragment_paths: Vec<PathBuf>,
 
     /// Component group references to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub component_group_refs: Vec<String>,
 
     /// Component references to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub component_refs: Vec<String>,
 
     /// Feature group references to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub feature_group_refs: Vec<String>,
 
     /// Feature references to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub feature_refs: Vec<String>,
 
     /// Merge module (.msm) references to include.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub merge_refs: Vec<String>,
 
     /// Skip WebView2 runtime installation.
@@ -143,6 +158,7 @@ pub struct WixSettings {
     /// Set to true if your app doesn't use WebView2.
     ///
     /// Default: false
+    #[serde(default)]
     pub skip_webview_install: bool,
 
     /// Path to license file (.rtf format required).
@@ -150,11 +166,13 @@ pub struct WixSettings {
     /// Shown during installation.
     ///
     /// Default: None
+    #[serde(default)]
     pub license: Option<PathBuf>,
 
     /// Enable elevated update task for automatic updates.
     ///
     /// Default: false
+    #[serde(default)]
     pub enable_elevated_update_task: bool,
 
     /// Path to banner image (493×58 pixels).
@@ -162,6 +180,7 @@ pub struct WixSettings {
     /// Shown at top of installer dialogs.
     ///
     /// Default: None
+    #[serde(default)]
     pub banner_path: Option<PathBuf>,
 
     /// Path to dialog image (493×312 pixels).
@@ -169,6 +188,7 @@ pub struct WixSettings {
     /// Shown on installer welcome screen.
     ///
     /// Default: None
+    #[serde(default)]
     pub dialog_image_path: Option<PathBuf>,
 }
 
@@ -183,7 +203,8 @@ pub struct WixSettings {
 /// [package.metadata.bundle.windows.nsis]
 /// installer_mode = "perMachine"  # or "currentUser" or "both"
 /// ```
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum NSISInstallerMode {
     /// Per-user installation (no admin rights required).
     ///
@@ -219,7 +240,8 @@ pub enum NSISInstallerMode {
 /// [package.metadata.bundle.windows.nsis]
 /// compression = "lzma"
 /// ```
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum NsisCompression {
     /// No compression - fastest, largest size.
     None,
@@ -256,11 +278,12 @@ pub enum NsisCompression {
 /// - [`WixSettings`] - WiX MSI installer configuration
 /// - [`NSISInstallerMode`] - Installation scope
 /// - [`NsisCompression`] - Compression algorithms
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct NsisSettings {
     /// Path to custom NSIS template (.nsi file).
     ///
     /// Default: None (uses built-in template)
+    #[serde(default)]
     pub template: Option<PathBuf>,
 
     /// Path to header image (150×57 pixels).
@@ -268,6 +291,7 @@ pub struct NsisSettings {
     /// Shown at top of installer window.
     ///
     /// Default: None
+    #[serde(default)]
     pub header_image: Option<PathBuf>,
 
     /// Path to sidebar image (164×314 pixels).
@@ -275,6 +299,7 @@ pub struct NsisSettings {
     /// Shown on left side of installer window.
     ///
     /// Default: None
+    #[serde(default)]
     pub sidebar_image: Option<PathBuf>,
 
     /// Path to installer icon (.ico file).
@@ -282,11 +307,13 @@ pub struct NsisSettings {
     /// Icon for the installer executable itself.
     ///
     /// Default: None (uses application icon)
+    #[serde(default)]
     pub installer_icon: Option<PathBuf>,
 
     /// Installation mode (per-user, per-machine, or both).
     ///
     /// Default: [`NSISInstallerMode::CurrentUser`]
+    #[serde(default)]
     pub install_mode: NSISInstallerMode,
 
     /// Supported installer languages.
@@ -294,10 +321,12 @@ pub struct NsisSettings {
     /// Example: `["en-US", "de-DE"]`
     ///
     /// Default: None (uses English)
+    #[serde(default)]
     pub languages: Option<Vec<String>>,
 
     /// Compression algorithm for installer.
     ///
     /// Default: None (uses [`NsisCompression::Zlib`])
+    #[serde(default)]
     pub compression: Option<NsisCompression>,
 }

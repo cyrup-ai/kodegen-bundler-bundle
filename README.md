@@ -291,6 +291,149 @@ your-project/
 
 See [kodegen-bundler-release README](../kodegen-bundler-release/README.md) for detailed asset requirements.
 
+## Configuration
+
+### TOML Configuration Structure
+
+Bundle settings are configured in your project's `Cargo.toml` under `[package.metadata.bundle]`. The configuration uses a **flat structure** where platform-specific settings are direct children of the bundle section.
+
+**Important**: Platform settings like `deb`, `rpm`, `appimage`, `macos`, and `windows` are **direct fields** under `[package.metadata.bundle]`, not nested under intermediate sections like `.linux`.
+
+### Complete Configuration Example
+
+```toml
+[package.metadata.bundle]
+# Universal settings
+identifier = "com.example.myapp"
+publisher = "Example Inc."
+icon = ["assets/img/icon_32x32.png", "assets/img/icon_128x128.png"]
+resources = ["assets/data"]
+copyright = "Copyright © 2025 Example Inc."
+category = "Utility"
+short_description = "My awesome application"
+long_description = "A detailed description of my application"
+
+# Linux: Debian/Ubuntu packages
+[package.metadata.bundle.deb]
+depends = ["libc6 (>= 2.31)", "libssl3"]
+section = "utils"
+priority = "optional"
+
+# Linux: RedHat/Fedora/CentOS packages
+[package.metadata.bundle.rpm]
+depends = ["glibc >= 2.31", "openssl-libs"]
+release = "1"
+
+# Linux: AppImage portable executables
+[package.metadata.bundle.appimage]
+bins = ["myapp"]
+
+# macOS: Application bundles and disk images
+[package.metadata.bundle.macos]
+frameworks = []
+minimum_system_version = "10.13"
+signing_identity = "Developer ID Application: Example Inc. (TEAM123)"
+
+[package.metadata.bundle.macos.dmg]
+background = "assets/dmg-background.png"
+window_size = { width = 660, height = 400 }
+
+# Windows: MSI and NSIS installers
+[package.metadata.bundle.windows]
+wix_language = "en-US"
+
+[package.metadata.bundle.windows.nsis]
+installer_mode = "perUser"
+compression = "lzma"
+```
+
+### Platform-Specific Configuration Details
+
+#### Debian Packages (`[package.metadata.bundle.deb]`)
+
+```toml
+[package.metadata.bundle.deb]
+depends = ["libc6 (>= 2.31)"]    # Runtime dependencies
+section = "utils"                 # Package category
+priority = "optional"             # Installation priority
+```
+
+**Note**: The path is `[package.metadata.bundle.deb]`, **not** `[package.metadata.bundle.linux.deb]`.
+
+#### RPM Packages (`[package.metadata.bundle.rpm]`)
+
+```toml
+[package.metadata.bundle.rpm]
+depends = ["glibc >= 2.31"]      # Runtime dependencies
+release = "1"                     # RPM release number
+```
+
+**Note**: The path is `[package.metadata.bundle.rpm]`, **not** `[package.metadata.bundle.linux.rpm]`.
+
+#### AppImage (`[package.metadata.bundle.appimage]`)
+
+```toml
+[package.metadata.bundle.appimage]
+bins = ["myapp", "myapp-cli"]    # Binaries to include
+```
+
+**Note**: The path is `[package.metadata.bundle.appimage]`, **not** `[package.metadata.bundle.linux.appimage]`.
+
+#### macOS Bundles (`[package.metadata.bundle.macos]`)
+
+```toml
+[package.metadata.bundle.macos]
+frameworks = []                                    # Additional frameworks
+minimum_system_version = "10.13"                   # Minimum macOS version
+signing_identity = "Developer ID Application: ..." # Code signing identity
+
+[package.metadata.bundle.macos.dmg]
+background = "assets/dmg-background.png"           # DMG background image
+window_size = { width = 660, height = 400 }        # DMG window size
+```
+
+#### Windows Installers (`[package.metadata.bundle.windows]`)
+
+```toml
+[package.metadata.bundle.windows]
+wix_language = "en-US"           # MSI installer language
+
+[package.metadata.bundle.windows.nsis]
+installer_mode = "perUser"        # "perUser" or "perMachine"
+compression = "lzma"              # "none", "zlib", or "lzma"
+```
+
+### Minimal Configuration
+
+The bundler works with minimal configuration, using sensible defaults:
+
+```toml
+[package.metadata.bundle]
+identifier = "com.example.myapp"
+publisher = "Example Inc."
+icon = ["assets/img/icon.png"]
+```
+
+All platform-specific sections are optional and will use defaults if not specified.
+
+### TOML Path Reference
+
+**Correct paths** for platform-specific configuration:
+
+- ✅ `[package.metadata.bundle.deb]` - Debian settings
+- ✅ `[package.metadata.bundle.rpm]` - RPM settings
+- ✅ `[package.metadata.bundle.appimage]` - AppImage settings
+- ✅ `[package.metadata.bundle.macos]` - macOS settings
+- ✅ `[package.metadata.bundle.macos.dmg]` - DMG-specific settings
+- ✅ `[package.metadata.bundle.windows]` - Windows settings
+- ✅ `[package.metadata.bundle.windows.nsis]` - NSIS-specific settings
+
+**Incorrect paths** (do not use):
+
+- ❌ `[package.metadata.bundle.linux.deb]` - Wrong, no `.linux` parent
+- ❌ `[package.metadata.bundle.linux.rpm]` - Wrong, no `.linux` parent
+- ❌ `[package.metadata.bundle.linux.appimage]` - Wrong, no `.linux` parent
+
 ## Building from Source
 
 ### Prerequisites

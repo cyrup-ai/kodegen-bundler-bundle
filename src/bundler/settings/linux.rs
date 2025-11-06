@@ -12,7 +12,7 @@ use std::path::PathBuf;
 /// Add to `Cargo.toml`:
 ///
 /// ```toml
-/// [package.metadata.bundle.linux.deb]
+/// [package.metadata.bundle.deb]
 /// depends = ["libc6 (>= 2.31)", "libssl3"]
 /// section = "devel"
 /// priority = "optional"
@@ -42,13 +42,14 @@ use std::path::PathBuf;
 ///
 /// - [`RpmSettings`] - RPM package configuration
 /// - [`AppImageSettings`] - AppImage configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct DebianSettings {
     /// Package dependencies in Debian syntax.
     ///
     /// Example: `["libc6 (>= 2.31)", "libssl3"]`
     ///
     /// Default: None
+    #[serde(default)]
     pub depends: Option<Vec<String>>,
 
     /// Package recommendations (optional dependencies).
@@ -56,6 +57,7 @@ pub struct DebianSettings {
     /// These packages enhance functionality but aren't required.
     ///
     /// Default: None
+    #[serde(default)]
     pub recommends: Option<Vec<String>>,
 
     /// Virtual packages this package provides.
@@ -63,16 +65,19 @@ pub struct DebianSettings {
     /// Used for package alternatives and virtual package names.
     ///
     /// Default: None
+    #[serde(default)]
     pub provides: Option<Vec<String>>,
 
     /// Packages that cannot be installed alongside this one.
     ///
     /// Default: None
+    #[serde(default)]
     pub conflicts: Option<Vec<String>>,
 
     /// Packages this one replaces (for upgrades).
     ///
     /// Default: None
+    #[serde(default)]
     pub replaces: Option<Vec<String>>,
 
     /// Custom files to add to package (destination -> source).
@@ -80,6 +85,7 @@ pub struct DebianSettings {
     /// Maps installation paths to source files.
     ///
     /// Default: Empty
+    #[serde(default)]
     pub files: HashMap<PathBuf, PathBuf>,
 
     /// Path to custom `.desktop` file template.
@@ -87,6 +93,7 @@ pub struct DebianSettings {
     /// Will be installed to `/usr/share/applications/`.
     ///
     /// Default: None (auto-generated if not provided)
+    #[serde(default)]
     pub desktop_template: Option<PathBuf>,
 
     /// Debian control file section.
@@ -94,6 +101,7 @@ pub struct DebianSettings {
     /// Common values: "utils", "devel", "admin", "net"
     ///
     /// Default: None (uses "utils")
+    #[serde(default)]
     pub section: Option<String>,
 
     /// Package priority in Debian repository.
@@ -101,11 +109,13 @@ pub struct DebianSettings {
     /// Values: "required", "important", "standard", "optional", "extra"
     ///
     /// Default: None (uses "optional")
+    #[serde(default)]
     pub priority: Option<String>,
 
     /// Path to Debian changelog file.
     ///
     /// Default: None (auto-generated)
+    #[serde(default)]
     pub changelog: Option<PathBuf>,
 
     /// Pre-install script path (preinst).
@@ -113,6 +123,7 @@ pub struct DebianSettings {
     /// Executed before package installation.
     ///
     /// Default: None
+    #[serde(default)]
     pub pre_install_script: Option<PathBuf>,
 
     /// Post-install script path (postinst).
@@ -120,6 +131,7 @@ pub struct DebianSettings {
     /// Executed after package installation.
     ///
     /// Default: None
+    #[serde(default)]
     pub post_install_script: Option<PathBuf>,
 
     /// Pre-remove script path (prerm).
@@ -127,6 +139,7 @@ pub struct DebianSettings {
     /// Executed before package removal.
     ///
     /// Default: None
+    #[serde(default)]
     pub pre_remove_script: Option<PathBuf>,
 
     /// Post-remove script path (postrm).
@@ -134,6 +147,7 @@ pub struct DebianSettings {
     /// Executed after package removal.
     ///
     /// Default: None
+    #[serde(default)]
     pub post_remove_script: Option<PathBuf>,
 }
 
@@ -146,7 +160,7 @@ pub struct DebianSettings {
 /// Add to `Cargo.toml`:
 ///
 /// ```toml
-/// [package.metadata.bundle.linux.rpm]
+/// [package.metadata.bundle.rpm]
 /// depends = ["glibc >= 2.31"]
 /// release = "1"
 /// compression = "zstd"
@@ -164,33 +178,38 @@ pub struct DebianSettings {
 ///
 /// - [`DebianSettings`] - Debian package configuration
 /// - [`AppImageSettings`] - AppImage configuration
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct RpmSettings {
     /// Package dependencies in RPM syntax.
     ///
     /// Example: `["glibc >= 2.31", "openssl-libs"]`
     ///
     /// Default: None
+    #[serde(default)]
     pub depends: Option<Vec<String>>,
 
     /// Package recommendations (weak dependencies).
     ///
     /// Default: None
+    #[serde(default)]
     pub recommends: Option<Vec<String>>,
 
     /// Virtual packages this package provides.
     ///
     /// Default: None
+    #[serde(default)]
     pub provides: Option<Vec<String>>,
 
     /// Packages that cannot be installed alongside this one.
     ///
     /// Default: None
+    #[serde(default)]
     pub conflicts: Option<Vec<String>>,
 
     /// Packages this one obsoletes (supersedes).
     ///
     /// Default: None
+    #[serde(default)]
     pub obsoletes: Option<Vec<String>>,
 
     /// Release number appended to version.
@@ -198,6 +217,7 @@ pub struct RpmSettings {
     /// Incremented for packaging changes without version bumps.
     ///
     /// Default: "1"
+    #[serde(default = "default_rpm_release")]
     pub release: String,
 
     /// Epoch number for version ordering.
@@ -206,42 +226,55 @@ pub struct RpmSettings {
     /// Rarely needed.
     ///
     /// Default: 0
+    #[serde(default)]
     pub epoch: u32,
 
     /// Custom files to add to package (destination -> source).
     ///
     /// Default: Empty
+    #[serde(default)]
     pub files: HashMap<PathBuf, PathBuf>,
 
     /// Path to custom `.desktop` file template.
     ///
     /// Default: None (auto-generated)
+    #[serde(default)]
     pub desktop_template: Option<PathBuf>,
 
     /// Pre-install script path (%pre).
     ///
     /// Default: None
+    #[serde(default)]
     pub pre_install_script: Option<PathBuf>,
 
     /// Post-install script path (%post).
     ///
     /// Default: None
+    #[serde(default)]
     pub post_install_script: Option<PathBuf>,
 
     /// Pre-remove script path (%preun).
     ///
     /// Default: None
+    #[serde(default)]
     pub pre_remove_script: Option<PathBuf>,
 
     /// Post-remove script path (%postun).
     ///
     /// Default: None
+    #[serde(default)]
     pub post_remove_script: Option<PathBuf>,
 
     /// Compression algorithm: "gzip", "xz", "zstd", "bzip2".
     ///
     /// Default: None (uses RPM default, typically "gzip")
+    #[serde(default)]
     pub compression: Option<String>,
+}
+
+/// Helper function for RPM release field default
+fn default_rpm_release() -> String {
+    "1".to_string()
 }
 
 impl Default for RpmSettings {
@@ -275,7 +308,7 @@ impl Default for RpmSettings {
 /// Add to `Cargo.toml`:
 ///
 /// ```toml
-/// [package.metadata.bundle.linux.appimage]
+/// [package.metadata.bundle.appimage]
 /// bundle_media_framework = true
 /// ```
 ///
@@ -290,11 +323,12 @@ impl Default for RpmSettings {
 ///
 /// - [`DebianSettings`] - Debian package configuration
 /// - [`RpmSettings`] - RPM package configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct AppImageSettings {
     /// Custom files to include (destination -> source).
     ///
     /// Default: Empty
+    #[serde(default)]
     pub files: HashMap<PathBuf, PathBuf>,
 
     /// Bundle GStreamer media framework.
@@ -302,6 +336,7 @@ pub struct AppImageSettings {
     /// Enable this if your application uses audio/video playback.
     ///
     /// Default: false
+    #[serde(default)]
     pub bundle_media_framework: bool,
 
     /// Bundle xdg-open binary for opening URLs/files.
@@ -309,5 +344,6 @@ pub struct AppImageSettings {
     /// Enable this if your application needs to open web browsers or files.
     ///
     /// Default: false
+    #[serde(default)]
     pub bundle_xdg_open: bool,
 }

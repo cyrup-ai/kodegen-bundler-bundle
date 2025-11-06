@@ -28,13 +28,14 @@ use std::path::PathBuf;
 ///
 /// - [`DmgSettings`] - DMG disk image configuration
 /// - [`WindowsSettings`] - Windows installer configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct MacOsSettings {
     /// System frameworks to bundle with the application.
     ///
     /// Example: `["WebKit.framework", "Security.framework"]`
     ///
     /// Default: None (no additional frameworks)
+    #[serde(default)]
     pub frameworks: Option<Vec<String>>,
 
     /// Minimum macOS version required (LSMinimumSystemVersion).
@@ -42,6 +43,7 @@ pub struct MacOsSettings {
     /// Example: "10.15", "11.0", "12.0"
     ///
     /// Default: None (uses current SDK version)
+    #[serde(default)]
     pub minimum_system_version: Option<String>,
 
     /// Code signing identity name.
@@ -51,6 +53,7 @@ pub struct MacOsSettings {
     /// Use "-" for ad-hoc signing (development only).
     ///
     /// Default: None (unsigned)
+    #[serde(default)]
     pub signing_identity: Option<String>,
 
     /// Path to entitlements.plist for code signing.
@@ -58,11 +61,13 @@ pub struct MacOsSettings {
     /// Required for certain macOS features (network, camera, etc.).
     ///
     /// Default: None
+    #[serde(default)]
     pub entitlements: Option<PathBuf>,
 
     /// Custom files to include (destination -> source).
     ///
     /// Default: Empty
+    #[serde(default)]
     pub files: HashMap<PathBuf, PathBuf>,
 
     /// Skip notarization with Apple.
@@ -71,6 +76,7 @@ pub struct MacOsSettings {
     /// Only skip for development/testing.
     ///
     /// Default: false (notarization enabled)
+    #[serde(default)]
     pub skip_notarization: bool,
 
     /// Skip stapling the notarization ticket.
@@ -78,6 +84,7 @@ pub struct MacOsSettings {
     /// Stapling attaches the notarization ticket to the bundle for offline verification.
     ///
     /// Default: false (stapling enabled)
+    #[serde(default)]
     pub skip_stapling: bool,
 }
 
@@ -98,17 +105,19 @@ pub struct MacOsSettings {
 /// # See Also
 ///
 /// - [`MacOsSettings`] - macOS app bundle configuration
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct DmgSettings {
     /// Path to background image for DMG window.
     ///
     /// Should be PNG format. Recommended size: 540x380 pixels.
     ///
     /// Default: None (plain background)
+    #[serde(default)]
     pub background: Option<PathBuf>,
 
     /// DMG window size (width, height) in pixels.
     ///
     /// Default: None (uses default size)
+    #[serde(default)]
     pub window_size: Option<(u32, u32)>,
 }

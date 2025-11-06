@@ -19,7 +19,11 @@ use std::path::{Path, PathBuf};
 /// ```
 ///
 /// Used by Debian, RPM, and AppImage builders.
-pub async fn install_icons(icons: &[IconInfo], dest_dir: &Path, app_name: &str) -> Result<Vec<PathBuf>> {
+pub async fn install_icons(
+    icons: &[IconInfo],
+    dest_dir: &Path,
+    app_name: &str,
+) -> Result<Vec<PathBuf>> {
     let mut installed = Vec::new();
 
     // Freedesktop.org standard icon sizes
@@ -32,27 +36,29 @@ pub async fn install_icons(icons: &[IconInfo], dest_dir: &Path, app_name: &str) 
                 .join(format!("{}x{}", size, size))
                 .join("apps");
 
-            tokio::fs::create_dir_all(&size_dir).await
+            tokio::fs::create_dir_all(&size_dir)
+                .await
                 .fs_context("creating icon size directory", &size_dir)?;
 
             let dest = size_dir.join(format!("{}.png", app_name));
 
             // Resize and save as PNG (spawn_blocking for I/O + CPU-bound work)
             let icon_path = icon_info.path.clone();
-            let rgba = tokio::task::spawn_blocking(move || {
-                load_and_resize(&icon_path, size, size)
-            })
-            .await
-            .map_err(|e| crate::bundler::Error::GenericError(format!("Image resize task failed: {}", e)))??;
-            
+            let rgba = tokio::task::spawn_blocking(move || load_and_resize(&icon_path, size, size))
+                .await
+                .map_err(|e| {
+                    crate::bundler::Error::GenericError(format!("Image resize task failed: {}", e))
+                })??;
+
             let img = image::DynamicImage::ImageRgba8(rgba);
-            
+
             // Encode to PNG buffer then write asynchronously
             let mut buffer = std::io::Cursor::new(Vec::new());
             img.write_to(&mut buffer, image::ImageFormat::Png)
                 .map_err(|e| crate::bundler::Error::GenericError(format!("encoding PNG: {}", e)))?;
-            
-            tokio::fs::write(&dest, buffer.into_inner()).await
+
+            tokio::fs::write(&dest, buffer.into_inner())
+                .await
                 .fs_context("saving icon", &dest)?;
 
             log::debug!("Installed {}x{} icon to {}", size, size, dest.display());

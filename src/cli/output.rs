@@ -32,9 +32,11 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Cyan))).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Cyan)))
+            .is_err()
             || write!(&mut buffer, "ℹ ").is_err()
             || buffer.reset().is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
@@ -52,9 +54,11 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true)).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_bold(true))
+            .is_err()
             || write!(&mut buffer, "✓").is_err()
             || buffer.reset().is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
@@ -72,12 +76,16 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true)).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Yellow)).set_bold(true))
+            .is_err()
             || write!(&mut buffer, "⚠").is_err()
             || buffer.reset().is_err()
-            || buffer.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).is_err()
+            || buffer
+                .set_color(ColorSpec::new().set_fg(Some(Color::Yellow)))
+                .is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
             || buffer.reset().is_err()
             || self.bufwtr.print(&buffer).is_err()
@@ -91,12 +99,16 @@ impl OutputManager {
     pub fn error(&self, message: &str) {
         let bufwtr = BufferWriter::stderr(ColorChoice::Auto);
         let mut buffer = bufwtr.buffer();
-        
+
         // Try colored output to stderr
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true)).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Red)).set_bold(true))
+            .is_err()
             || write!(&mut buffer, "✗").is_err()
             || buffer.reset().is_err()
-            || buffer.set_color(ColorSpec::new().set_fg(Some(Color::Red))).is_err()
+            || buffer
+                .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
+                .is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
             || buffer.reset().is_err()
             || bufwtr.print(&buffer).is_err()
@@ -113,12 +125,16 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Blue)))
+            .is_err()
             || write!(&mut buffer, "→").is_err()
             || buffer.reset().is_err()
-            || buffer.set_color(ColorSpec::new().set_fg(Some(Color::White))).is_err()
+            || buffer
+                .set_color(ColorSpec::new().set_fg(Some(Color::White)))
+                .is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
             || buffer.reset().is_err()
             || self.bufwtr.print(&buffer).is_err()
@@ -135,9 +151,11 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
-        if buffer.set_color(ColorSpec::new().set_fg(Some(Color::Magenta))).is_err()
+        if buffer
+            .set_color(ColorSpec::new().set_fg(Some(Color::Magenta)))
+            .is_err()
             || write!(&mut buffer, "⋯").is_err()
             || buffer.reset().is_err()
             || writeln!(&mut buffer, " {}", message).is_err()
@@ -155,10 +173,12 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try colored output to stdout
         if writeln!(&mut buffer).is_err()
-            || buffer.set_color(ColorSpec::new().set_fg(Some(Color::Cyan)).set_bold(true)).is_err()
+            || buffer
+                .set_color(ColorSpec::new().set_fg(Some(Color::Cyan)).set_bold(true))
+                .is_err()
             || writeln!(&mut buffer, "═══ {} ═══", title).is_err()
             || buffer.reset().is_err()
             || self.bufwtr.print(&buffer).is_err()
@@ -175,10 +195,9 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try output to stdout
-        if writeln!(&mut buffer, "    {}", message).is_err()
-            || self.bufwtr.print(&buffer).is_err()
+        if writeln!(&mut buffer, "    {}", message).is_err() || self.bufwtr.print(&buffer).is_err()
         {
             // Fallback: plain text to stderr
             eprintln!("[OUTPUT ERROR]     {}", message);
@@ -192,11 +211,9 @@ impl OutputManager {
         }
 
         let mut buffer = self.bufwtr.buffer();
-        
+
         // Try output to stdout
-        if writeln!(&mut buffer, "{}", message).is_err()
-            || self.bufwtr.print(&buffer).is_err()
-        {
+        if writeln!(&mut buffer, "{}", message).is_err() || self.bufwtr.print(&buffer).is_err() {
             // Fallback: plain text to stderr
             eprintln!("[OUTPUT ERROR] {}", message);
         }

@@ -2,7 +2,7 @@
 //!
 //! Handles finding and verifying package artifacts created by Docker containers.
 
-use crate::error::{CliError, BundlerError};
+use crate::error::{BundlerError, CliError};
 use std::path::PathBuf;
 
 /// Verifies that artifacts are complete and not corrupted.

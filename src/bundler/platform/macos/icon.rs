@@ -1,7 +1,5 @@
 //! ICNS icon file creation for macOS applications.
 #![allow(dead_code)] // Public API - items may be used by external consumers
-
-
 #![cfg(target_os = "macos")]
 
 use crate::bundler::error::{ErrorExt, Result};
@@ -56,16 +54,21 @@ pub async fn create_icns_file(icons: &[IconInfo], output: &Path) -> Result<()> {
         }
     }
 
-    let tokio_file = tokio::fs::File::create(output).await.fs_context("creating ICNS output file", output)?;
+    let tokio_file = tokio::fs::File::create(output)
+        .await
+        .fs_context("creating ICNS output file", output)?;
     let file = tokio_file.into_std().await;
 
     // Wrap CPU-bound ICNS encoding in spawn_blocking
     task::spawn_blocking(move || {
-        family.write(file)
+        family
+            .write(file)
             .map_err(|e| crate::bundler::Error::GenericError(format!("writing ICNS data: {}", e)))
     })
     .await
-    .map_err(|e| crate::bundler::Error::GenericError(format!("ICNS encoding task failed: {}", e)))??;
+    .map_err(|e| {
+        crate::bundler::Error::GenericError(format!("ICNS encoding task failed: {}", e))
+    })??;
 
     log::info!("Created ICNS file: {}", output.display());
     Ok(())

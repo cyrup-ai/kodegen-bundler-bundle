@@ -21,17 +21,23 @@
 //! # Module Structure
 //!
 //! - `artifacts` - Artifact verification and discovery
+//! - `artifact_manager` - Artifact discovery, validation, and file management
 //! - `bundler` - Main container bundler implementation
+//! - `container_runner` - Docker container execution and process streaming
 //! - `guard` - RAII guard for container cleanup
 //! - `image` - Docker image management and building
 //! - `limits` - Resource limits for containers
+//! - `oom_detector` - Out-of-memory detection and error reporting
 //! - `platform` - Platform detection and classification
 
+mod artifact_manager;
 mod artifacts;
 mod bundler;
+mod container_runner;
 mod guard;
 mod image;
 mod limits;
+mod oom_detector;
 mod platform;
 
 // Re-export public API

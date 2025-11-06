@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// All binaries in the kodegen workspace that need universal variants
-/// 
+///
 /// Total: 18 binaries
 /// - 3 core: kodegen_install (installer), kodegen (main stdio server), kodegend (daemon)
 /// - 15 category servers: browser, candle-agent, citescrape, claude-agent, config,
@@ -56,10 +56,7 @@ const ALL_BINARIES: &[&str] = &[
 /// - If either architecture's binaries are missing (must build both first)
 /// - If lipo command fails (not installed or binary incompatibility)
 /// - If output directory cannot be created
-pub fn create_universal_binaries(
-    workspace_root: &Path,
-    output_dir: &Path,
-) -> Result<Vec<PathBuf>> {
+pub fn create_universal_binaries(workspace_root: &Path, output_dir: &Path) -> Result<Vec<PathBuf>> {
     // Verify both architecture build directories exist
     let x86_64_dir = workspace_root.join("target/x86_64-apple-darwin/release");
     let aarch64_dir = workspace_root.join("target/aarch64-apple-darwin/release");
@@ -81,10 +78,16 @@ pub fn create_universal_binaries(
     }
 
     std::fs::create_dir_all(output_dir).with_context(|| {
-        format!("Failed to create universal binary output directory: {}", output_dir.display())
+        format!(
+            "Failed to create universal binary output directory: {}",
+            output_dir.display()
+        )
     })?;
 
-    log::info!("Creating universal binaries (x86_64 + aarch64) for {} binaries", ALL_BINARIES.len());
+    log::info!(
+        "Creating universal binaries (x86_64 + aarch64) for {} binaries",
+        ALL_BINARIES.len()
+    );
 
     let mut universal_binaries = Vec::new();
 
@@ -95,11 +98,19 @@ pub fn create_universal_binaries(
 
         // Verify both architecture binaries exist
         if !x86_64_bin.exists() {
-            log::warn!("Skipping {}: x86_64 binary not found at {}", binary_name, x86_64_bin.display());
+            log::warn!(
+                "Skipping {}: x86_64 binary not found at {}",
+                binary_name,
+                x86_64_bin.display()
+            );
             continue;
         }
         if !aarch64_bin.exists() {
-            log::warn!("Skipping {}: aarch64 binary not found at {}", binary_name, aarch64_bin.display());
+            log::warn!(
+                "Skipping {}: aarch64 binary not found at {}",
+                binary_name,
+                aarch64_bin.display()
+            );
             continue;
         }
 
@@ -112,7 +123,9 @@ pub fn create_universal_binaries(
             .arg("-output")
             .arg(&universal_bin)
             .output()
-            .context("Failed to run lipo command. Ensure Xcode Command Line Tools are installed.")?;
+            .context(
+                "Failed to run lipo command. Ensure Xcode Command Line Tools are installed.",
+            )?;
 
         if !output.status.success() {
             anyhow::bail!(
@@ -138,6 +151,9 @@ pub fn create_universal_binaries(
         anyhow::bail!("No universal binaries were created. Verify both architecture builds exist.");
     }
 
-    log::info!("Successfully created {} universal binaries", universal_binaries.len());
+    log::info!(
+        "Successfully created {} universal binaries",
+        universal_binaries.len()
+    );
     Ok(universal_binaries)
 }

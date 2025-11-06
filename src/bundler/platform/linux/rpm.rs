@@ -6,13 +6,10 @@
 //! dependencies, and file structure.
 
 use crate::bundler::{
-    error::{ErrorExt, Result, Error},
+    error::{Error, ErrorExt, Result},
     settings::{Arch, Settings},
 };
-use std::{
-    io::Write,
-    path::PathBuf,
-};
+use std::{io::Write, path::PathBuf};
 
 /// Bundle project as RPM package
 pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
@@ -134,7 +131,8 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         log::debug!("Adding binary: {} -> {}", src_path.display(), dest_path);
 
         // Read binary content
-        let content = tokio::fs::read(&src_path).await
+        let content = tokio::fs::read(&src_path)
+            .await
             .fs_context("reading binary", &src_path)?;
 
         // Add with executable permissions
@@ -149,8 +147,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
 
     // Add custom files from RpmSettings
     for (dest, src) in &settings.rpm_settings().files {
-        let content =
-            tokio::fs::read(src).await.fs_context("reading custom file", src)?;
+        let content = tokio::fs::read(src)
+            .await
+            .fs_context("reading custom file", src)?;
 
         builder = builder.with_file_contents(
             content,
@@ -163,39 +162,46 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
 
     // Add install/uninstall scripts
     if let Some(pre_install) = &settings.rpm_settings().pre_install_script {
-        let script = tokio::fs::read_to_string(pre_install).await
+        let script = tokio::fs::read_to_string(pre_install)
+            .await
             .fs_context("reading pre-install script", pre_install)?;
         builder = builder.pre_install_script(script);
     }
 
     if let Some(post_install) = &settings.rpm_settings().post_install_script {
-        let script = tokio::fs::read_to_string(post_install).await
+        let script = tokio::fs::read_to_string(post_install)
+            .await
             .fs_context("reading post-install script", post_install)?;
         builder = builder.post_install_script(script);
     }
 
     if let Some(pre_remove) = &settings.rpm_settings().pre_remove_script {
-        let script = tokio::fs::read_to_string(pre_remove).await
+        let script = tokio::fs::read_to_string(pre_remove)
+            .await
             .fs_context("reading pre-remove script", pre_remove)?;
         builder = builder.pre_uninstall_script(script);
     }
 
     if let Some(post_remove) = &settings.rpm_settings().post_remove_script {
-        let script = tokio::fs::read_to_string(post_remove).await
+        let script = tokio::fs::read_to_string(post_remove)
+            .await
             .fs_context("reading post-remove script", post_remove)?;
         builder = builder.post_uninstall_script(script);
     }
 
     // Build the package
     let pkg = tokio::task::spawn_blocking(move || {
-        builder.build().map_err(|e| Error::GenericError(format!("Failed to build RPM package: {}", e)))
+        builder
+            .build()
+            .map_err(|e| Error::GenericError(format!("Failed to build RPM package: {}", e)))
     })
     .await
     .map_err(|e| Error::GenericError(format!("Task join error: {}", e)))??;
 
     // Create output directory
     let output_dir = settings.project_out_directory().join("bundle/rpm");
-    tokio::fs::create_dir_all(&output_dir).await
+    tokio::fs::create_dir_all(&output_dir)
+        .await
         .fs_context("creating RPM output directory", &output_dir)?;
 
     // Construct package filename
@@ -210,7 +216,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     let output_path = output_dir.join(package_name);
 
     // Write RPM to disk
-    let tokio_file = tokio::fs::File::create(&output_path).await.fs_context("creating RPM file", &output_path)?;
+    let tokio_file = tokio::fs::File::create(&output_path)
+        .await
+        .fs_context("creating RPM file", &output_path)?;
     let mut file = tokio_file.into_std().await;
 
     pkg.write(&mut file)

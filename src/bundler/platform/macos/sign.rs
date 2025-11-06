@@ -35,7 +35,6 @@ use std::path::Path;
 /// # }
 /// ```
 pub async fn sign_app(app_bundle: &Path, identity: &str, settings: &Settings) -> Result<()> {
-
     log::info!(
         "Signing {} with identity '{}'",
         app_bundle.display(),
@@ -102,8 +101,9 @@ pub async fn notarize_app(app_bundle: &Path, settings: &Settings) -> Result<()> 
     log::info!("Notarizing {}", app_bundle.display());
 
     // If APPLE_API_KEY_CONTENT is set, write to file and use that path directly
-    let auth = if let Some(key_path) =
-        kodegen_bundler_sign::macos::ensure_api_key_file().await.map_err(|e| {
+    let auth = if let Some(key_path) = kodegen_bundler_sign::macos::ensure_api_key_file()
+        .await
+        .map_err(|e| {
             crate::bundler::Error::GenericError(format!("Failed to write API key file: {}", e))
         })? {
         // We wrote the key, build auth directly with the path (no env var indirection)
@@ -121,12 +121,14 @@ pub async fn notarize_app(app_bundle: &Path, settings: &Settings) -> Result<()> 
         }
     } else {
         // No key content in env, use from_env() which checks APPLE_API_KEY_PATH or searches
-        kodegen_bundler_sign::macos::NotarizationAuth::from_env().await.map_err(|e| {
-            crate::bundler::Error::GenericError(format!(
-                "Failed to load notarization credentials: {}",
-                e
-            ))
-        })?
+        kodegen_bundler_sign::macos::NotarizationAuth::from_env()
+            .await
+            .map_err(|e| {
+                crate::bundler::Error::GenericError(format!(
+                    "Failed to load notarization credentials: {}",
+                    e
+                ))
+            })?
     };
 
     // Wait for notarization to complete
@@ -149,7 +151,9 @@ pub async fn notarize_app(app_bundle: &Path, settings: &Settings) -> Result<()> 
 /// - Notarization credentials are available in environment
 pub async fn should_notarize(settings: &Settings) -> bool {
     !settings.bundle_settings().macos.skip_notarization
-        && kodegen_bundler_sign::macos::NotarizationAuth::from_env().await.is_ok()
+        && kodegen_bundler_sign::macos::NotarizationAuth::from_env()
+            .await
+            .is_ok()
 }
 
 /// Sign a DMG file using kodegen_sign

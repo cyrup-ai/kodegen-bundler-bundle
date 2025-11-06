@@ -6,12 +6,12 @@
 //! allowing the bundler to create Docker build environments without requiring
 //! the source .devcontainer directory at runtime.
 
-use crate::error::{CliError, BundlerError, Result};
+use crate::error::{BundlerError, CliError, Result};
 use std::fs;
 use std::path::Path;
 
 /// Embedded Dockerfile for multi-platform builds
-/// 
+///
 /// This Dockerfile provides a unified build environment supporting:
 /// - Linux packages (.deb, .rpm, AppImage)
 /// - Windows packages (.msi via WiX/Wine, .exe via NSIS)
@@ -51,7 +51,7 @@ const DEVCONTAINER_JSON: &str = include_str!("../../../.devcontainer/devcontaine
 /// ```
 pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
     let devcontainer_dir = target_dir.join(".devcontainer");
-    
+
     // Create .devcontainer directory with standard permissions
     fs::create_dir_all(&devcontainer_dir).map_err(|e| {
         BundlerError::Cli(CliError::ExecutionFailed {
@@ -63,7 +63,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
             ),
         })
     })?;
-    
+
     // Write Dockerfile (required for Docker image builds)
     fs::write(devcontainer_dir.join("Dockerfile"), DOCKERFILE).map_err(|e| {
         BundlerError::Cli(CliError::ExecutionFailed {
@@ -75,7 +75,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
             ),
         })
     })?;
-    
+
     // Write README.md (documentation)
     fs::write(devcontainer_dir.join("README.md"), README).map_err(|e| {
         BundlerError::Cli(CliError::ExecutionFailed {
@@ -87,7 +87,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
             ),
         })
     })?;
-    
+
     // Write devcontainer.json (VS Code Dev Containers configuration)
     fs::write(
         devcontainer_dir.join("devcontainer.json"),
@@ -103,7 +103,7 @@ pub fn copy_embedded_devcontainer(target_dir: &Path) -> Result<()> {
             ),
         })
     })?;
-    
+
     Ok(())
 }
 
@@ -117,26 +117,26 @@ mod tests {
     fn test_copy_embedded_devcontainer() {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
         let result = copy_embedded_devcontainer(temp_dir.path());
-        
+
         assert!(result.is_ok(), "Failed to copy devcontainer: {:?}", result);
-        
+
         // Verify directory exists
         let devcontainer_dir = temp_dir.path().join(".devcontainer");
         assert!(devcontainer_dir.exists());
         assert!(devcontainer_dir.is_dir());
-        
+
         // Verify all files exist and are non-empty
         let dockerfile = devcontainer_dir.join("Dockerfile");
         assert!(dockerfile.exists());
         let dockerfile_contents = fs::read_to_string(&dockerfile).unwrap();
         assert!(!dockerfile_contents.is_empty());
         assert!(dockerfile_contents.contains("FROM rust:"));
-        
+
         let readme = devcontainer_dir.join("README.md");
         assert!(readme.exists());
         let readme_contents = fs::read_to_string(&readme).unwrap();
         assert!(!readme_contents.is_empty());
-        
+
         let devcontainer_json = devcontainer_dir.join("devcontainer.json");
         assert!(devcontainer_json.exists());
         let json_contents = fs::read_to_string(&devcontainer_json).unwrap();

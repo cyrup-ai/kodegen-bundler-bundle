@@ -1,6 +1,8 @@
 //! Bundle configuration and binary definitions.
 
-use super::{AppImageSettings, DebianSettings, DmgSettings, MacOsSettings, RpmSettings, WindowsSettings};
+use super::{
+    AppImageSettings, DebianSettings, DmgSettings, MacOsSettings, RpmSettings, WindowsSettings,
+};
 use std::path::PathBuf;
 
 /// Bundle configuration for all platforms.
@@ -26,7 +28,7 @@ use std::path::PathBuf;
 /// - [`RpmSettings`] - RPM package configuration
 /// - [`MacOsSettings`] - macOS app bundle configuration
 /// - [`WindowsSettings`] - Windows installer configuration
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct BundleSettings {
     /// Bundle identifier in reverse domain notation.
     ///
@@ -35,11 +37,13 @@ pub struct BundleSettings {
     /// Required for macOS and some Linux desktop integrations.
     ///
     /// Default: None
+    #[serde(default)]
     pub identifier: Option<String>,
 
     /// Publisher/company name.
     ///
     /// Default: None
+    #[serde(default)]
     pub publisher: Option<String>,
 
     /// Icon file paths (PNG recommended).
@@ -50,6 +54,7 @@ pub struct BundleSettings {
     /// Auto-converted to platform-specific formats (ICNS, ICO).
     ///
     /// Default: None
+    #[serde(default)]
     pub icon: Option<Vec<PathBuf>>,
 
     /// Pre-made ICNS file for macOS (optional).
@@ -57,6 +62,7 @@ pub struct BundleSettings {
     /// If provided, this file will be copied directly instead of generating from PNGs.
     ///
     /// Default: None
+    #[serde(default)]
     pub icns: Option<PathBuf>,
 
     /// Pre-made ICO file for Windows (optional).
@@ -64,6 +70,7 @@ pub struct BundleSettings {
     /// If provided, this file will be copied directly instead of generating from PNGs.
     ///
     /// Default: None
+    #[serde(default)]
     pub ico: Option<PathBuf>,
 
     /// Resource glob patterns to bundle.
@@ -71,6 +78,7 @@ pub struct BundleSettings {
     /// Example: `["config/**/*", "templates/**/*"]`
     ///
     /// Default: None
+    #[serde(default)]
     pub resources: Option<Vec<String>>,
 
     /// Copyright notice string.
@@ -78,6 +86,7 @@ pub struct BundleSettings {
     /// Example: "Copyright © 2024 Example Inc."
     ///
     /// Default: None
+    #[serde(default)]
     pub copyright: Option<String>,
 
     /// Application category.
@@ -85,6 +94,7 @@ pub struct BundleSettings {
     /// Common values: "Utility", "Developer Tools", "Graphics", "Productivity"
     ///
     /// Default: None
+    #[serde(default)]
     pub category: Option<String>,
 
     /// Short description (one line).
@@ -92,6 +102,7 @@ pub struct BundleSettings {
     /// Used in package managers and installer summaries.
     ///
     /// Default: None
+    #[serde(default)]
     pub short_description: Option<String>,
 
     /// Long description (multiple paragraphs).
@@ -99,6 +110,7 @@ pub struct BundleSettings {
     /// Used in package details and documentation.
     ///
     /// Default: None
+    #[serde(default)]
     pub long_description: Option<String>,
 
     /// External binaries to bundle.
@@ -109,36 +121,43 @@ pub struct BundleSettings {
     /// Example: `["helper"]` expects `helper-x86_64-unknown-linux-gnu`, etc.
     ///
     /// Default: None
+    #[serde(default)]
     pub external_bin: Option<Vec<String>>,
 
     /// Debian-specific settings.
     ///
     /// See [`DebianSettings`] for details.
+    #[serde(default)]
     pub deb: DebianSettings,
 
     /// RPM-specific settings.
     ///
     /// See [`RpmSettings`] for details.
+    #[serde(default)]
     pub rpm: RpmSettings,
 
     /// AppImage-specific settings.
     ///
     /// See [`AppImageSettings`] for details.
+    #[serde(default)]
     pub appimage: AppImageSettings,
 
     /// macOS-specific settings.
     ///
     /// See [`MacOsSettings`] for details.
+    #[serde(default)]
     pub macos: MacOsSettings,
 
     /// DMG-specific settings.
     ///
     /// See [`DmgSettings`] for details.
+    #[serde(default)]
     pub dmg: DmgSettings,
 
     /// Windows-specific settings.
     ///
     /// See [`WindowsSettings`] for details.
+    #[serde(default)]
     pub windows: WindowsSettings,
 }
 

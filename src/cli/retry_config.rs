@@ -10,16 +10,16 @@
 pub struct RetryConfig {
     /// Max retries for git operations (commit, tag, push)
     pub git_operations: u32,
-    
+
     /// Max retries for GitHub API calls (create release, etc.)
     pub github_api: u32,
-    
+
     /// Max retries for file upload operations
     pub file_uploads: u32,
-    
+
     /// Max retries for release publishing (both GitHub and crates.io)
     pub release_publishing: u32,
-    
+
     /// Max retries for cleanup operations (deletion, rollback)
     pub cleanup_operations: u32,
 }
@@ -27,11 +27,11 @@ pub struct RetryConfig {
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
-            git_operations: 3,        // Conservative - git is deterministic
-            github_api: 5,            // Higher - network + rate limits
-            file_uploads: 5,          // Higher - most network-dependent
-            release_publishing: 3,    // Conservative - idempotent operation
-            cleanup_operations: 3,    // Conservative - best-effort cleanup
+            git_operations: 3,     // Conservative - git is deterministic
+            github_api: 5,         // Higher - network + rate limits
+            file_uploads: 5,       // Higher - most network-dependent
+            release_publishing: 3, // Conservative - idempotent operation
+            cleanup_operations: 3, // Conservative - best-effort cleanup
         }
     }
 }
@@ -50,10 +50,10 @@ impl RetryConfig {
         std::env::var(var_name)
             .ok()
             .and_then(|s| s.parse::<u32>().ok())
-            .map(|v| v.min(max))  // Clamp to max
+            .map(|v| v.min(max)) // Clamp to max
             .unwrap_or(default)
     }
-    
+
     /// Create config from environment variables with fallback to defaults
     pub fn from_env() -> Self {
         Self {
@@ -64,7 +64,7 @@ impl RetryConfig {
             cleanup_operations: Self::parse_retry_env("KODEGEN_RETRY_CLEANUP", 3, 10),
         }
     }
-    
+
     /// Validate retry counts are reasonable
     pub fn validate(&self) -> Result<(), String> {
         if self.git_operations > 10 {

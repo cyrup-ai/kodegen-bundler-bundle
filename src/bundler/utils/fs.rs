@@ -171,7 +171,10 @@ pub async fn copy_dir(from: &Path, to: &Path) -> Result<()> {
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-pub async fn copy_custom_files(files_map: &HashMap<PathBuf, PathBuf>, data_dir: &Path) -> Result<()> {
+pub async fn copy_custom_files(
+    files_map: &HashMap<PathBuf, PathBuf>,
+    data_dir: &Path,
+) -> Result<()> {
     for (pkg_path, path) in files_map.iter() {
         let pkg_path = if pkg_path.is_absolute() {
             pkg_path.strip_prefix("/")?

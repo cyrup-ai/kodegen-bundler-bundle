@@ -251,7 +251,11 @@ mod tests {
     #[test]
     fn test_from_cli_default_swap() {
         let result = ContainerLimits::from_cli("4g".to_string(), None, None, 1000);
-        assert!(result.is_ok(), "from_cli should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "from_cli should succeed: {:?}",
+            result.err()
+        );
         if let Ok(limits) = result {
             // 4GB + 2GB = 6GB = 6144MB
             assert_eq!(limits.memory_swap, "6144m");
@@ -263,7 +267,11 @@ mod tests {
         // This is the critical test case from the bug report
         // "4096m" should be treated as 4GB, so default swap = 4GB + 2GB = 6GB = 6144MB
         let result = ContainerLimits::from_cli("4096m".to_string(), None, None, 1000);
-        assert!(result.is_ok(), "from_cli should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "from_cli should succeed: {:?}",
+            result.err()
+        );
         if let Ok(limits) = result {
             assert_eq!(limits.memory_swap, "6144m");
             // NOT "4098g" as the bug would have produced!
@@ -302,7 +310,11 @@ mod tests {
         // Should keep original memory format for Docker
         let result =
             ContainerLimits::from_cli("4g".to_string(), Some("6g".to_string()), None, 1000);
-        assert!(result.is_ok(), "from_cli should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "from_cli should succeed: {:?}",
+            result.err()
+        );
         if let Ok(limits) = result {
             assert_eq!(limits.memory, "4g");
         }

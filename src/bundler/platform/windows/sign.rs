@@ -54,13 +54,16 @@ pub async fn sign_file(binary_path: &Path, settings: &Settings) -> Result<()> {
     };
 
     // Sign the binary
-    kodegen_bundler_sign::windows::sign_binary(binary_path, &sign_config).await.map_err(|e| {
-        crate::bundler::Error::GenericError(format!("Windows code signing failed: {}", e))
-    })?;
+    kodegen_bundler_sign::windows::sign_binary(binary_path, &sign_config)
+        .await
+        .map_err(|e| {
+            crate::bundler::Error::GenericError(format!("Windows code signing failed: {}", e))
+        })?;
 
     // Generate integrity hash
-    let hash =
-        kodegen_bundler_sign::windows::generate_integrity_hash(binary_path).await.map_err(|e| {
+    let hash = kodegen_bundler_sign::windows::generate_integrity_hash(binary_path)
+        .await
+        .map_err(|e| {
             crate::bundler::Error::GenericError(format!("Hash generation failed: {}", e))
         })?;
 

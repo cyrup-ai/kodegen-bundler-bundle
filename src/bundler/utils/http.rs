@@ -103,7 +103,7 @@ pub async fn verify_hash(data: &[u8], expected_hash: &str, algorithm: HashAlgori
 /// Extracts a ZIP archive from memory into a destination directory.
 ///
 /// Creates parent directories as needed and handles both files and directories in the archive.
-/// 
+///
 /// **Security:** Validates paths to prevent traversal attacks. Only extracts files within the
 /// destination directory, rejecting entries with `..` or absolute paths.
 ///
@@ -115,27 +115,33 @@ pub async fn extract_zip(data: &[u8], dest: &Path) -> Result<()> {
     use async_zip::base::read::mem::ZipFileReader;
     use futures_lite::io::AsyncReadExt as _;
 
-    let reader = ZipFileReader::new(data.to_vec()).await
+    let reader = ZipFileReader::new(data.to_vec())
+        .await
         .map_err(|e| Error::GenericError(format!("Failed to read ZIP archive: {}", e)))?;
 
     for i in 0..reader.file().entries().len() {
-        let entry = reader.file().entries().get(i)
+        let entry = reader
+            .file()
+            .entries()
+            .get(i)
             .ok_or_else(|| Error::GenericError(format!("Failed to get ZIP entry {}", i)))?;
-        
-        let filename = entry.filename().as_str()
+
+        let filename = entry
+            .filename()
+            .as_str()
             .map_err(|e| Error::GenericError(format!("Invalid filename in ZIP: {}", e)))?;
-        
+
         // SECURITY: Validate path to prevent directory traversal
         if filename.contains("..") || filename.starts_with('/') || filename.starts_with('\\') {
             return Err(Error::GenericError(format!(
-                "Invalid ZIP entry path (potential traversal attack): {}", 
+                "Invalid ZIP entry path (potential traversal attack): {}",
                 filename
             )));
         }
-        
-        if entry.dir()
-            .map_err(|e| Error::GenericError(format!("Failed to check if entry is directory: {}", e)))? 
-        {
+
+        if entry.dir().map_err(|e| {
+            Error::GenericError(format!("Failed to check if entry is directory: {}", e))
+        })? {
             // Directory entry
             let dir_path = dest.join(filename);
             tokio::fs::create_dir_all(&dir_path).await?;
@@ -144,13 +150,15 @@ pub async fn extract_zip(data: &[u8], dest: &Path) -> Result<()> {
 
         // File entry
         let file_path = dest.join(filename);
-        
+
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
 
         // Read file content asynchronously
-        let mut entry_reader = reader.reader_with_entry(i).await
+        let mut entry_reader = reader
+            .reader_with_entry(i)
+            .await
             .map_err(|e| Error::GenericError(format!("Failed to read ZIP entry: {}", e)))?;
         let mut content = Vec::new();
         entry_reader.read_to_end(&mut content).await?;

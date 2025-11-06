@@ -1,7 +1,6 @@
 //! macOS application bundle (.app) creation.
 #![allow(dead_code)] // Public API - items may be used by external consumers
 
-
 use crate::bundler::{
     error::{Context, ErrorExt, Result},
     settings::Settings,
@@ -18,7 +17,10 @@ use tokio::fs as tokio_fs;
 /// # Arguments
 /// * `settings` - Bundle configuration
 /// * `runtime_identity` - Optional signing identity from TempKeychain (via APPLE_CERTIFICATE env var)
-pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>) -> Result<Vec<PathBuf>> {
+pub async fn bundle_project(
+    settings: &Settings,
+    runtime_identity: Option<&str>,
+) -> Result<Vec<PathBuf>> {
     let app_name = format!("{}.app", settings.product_name());
     let app_bundle_path = settings
         .project_out_directory()
@@ -29,7 +31,8 @@ pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>)
 
     // Remove old bundle if it exists
     if app_bundle_path.exists() {
-        tokio_fs::remove_dir_all(&app_bundle_path).await
+        tokio_fs::remove_dir_all(&app_bundle_path)
+            .await
             .fs_context("failed to remove old app bundle", &app_bundle_path)?;
     }
 
@@ -38,9 +41,11 @@ pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>)
     let macos_dir = contents_dir.join("MacOS");
     let resources_dir = contents_dir.join("Resources");
 
-    tokio_fs::create_dir_all(&macos_dir).await
+    tokio_fs::create_dir_all(&macos_dir)
+        .await
         .fs_context("failed to create MacOS directory", &macos_dir)?;
-    tokio_fs::create_dir_all(&resources_dir).await
+    tokio_fs::create_dir_all(&resources_dir)
+        .await
         .fs_context("failed to create Resources directory", &resources_dir)?;
 
     // Create icon file - use pre-made ICNS if available, otherwise convert from PNGs
@@ -50,12 +55,14 @@ pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>)
     // Check for pre-made ICNS file in workspace assets
     // Check for pre-made ICNS from bundle settings
     if let Some(ref icns_path) = settings.bundle_settings().icns {
-        tokio_fs::copy(icns_path, &icon_path).await
+        tokio_fs::copy(icns_path, &icon_path)
+            .await
             .fs_context("failed to copy pre-made ICNS", &icon_path)?;
     } else {
         // Fall back to converting from PNGs
         let icons = settings.icon_files().context("failed to load icon files")?;
-        super::icon::create_icns_file(&icons, &icon_path).await
+        super::icon::create_icns_file(&icons, &icon_path)
+            .await
             .context("failed to create app icon")?;
     }
 
@@ -178,14 +185,16 @@ async fn copy_binaries(macos_dir: &Path, settings: &Settings) -> Result<()> {
             resources_dir.join(bin_name)
         };
 
-        fs::copy_file(&src, &dst).await
+        fs::copy_file(&src, &dst)
+            .await
             .with_context(|| format!("failed to copy {} to .app bundle", bin_name))?;
 
         // Set executable permissions on all binaries
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            tokio_fs::set_permissions(&dst, std::fs::Permissions::from_mode(0o755)).await
+            tokio_fs::set_permissions(&dst, std::fs::Permissions::from_mode(0o755))
+                .await
                 .fs_context("failed to set executable permissions", &dst)?;
         }
     }
@@ -200,7 +209,8 @@ async fn copy_frameworks(contents_dir: &Path, settings: &Settings) -> Result<()>
     };
 
     let frameworks_dir = contents_dir.join("Frameworks");
-    tokio_fs::create_dir_all(&frameworks_dir).await
+    tokio_fs::create_dir_all(&frameworks_dir)
+        .await
         .fs_context("failed to create Frameworks directory", &frameworks_dir)?;
 
     for framework in frameworks {
@@ -214,7 +224,8 @@ async fn copy_frameworks(contents_dir: &Path, settings: &Settings) -> Result<()>
                 ))
             })?;
             let dst = frameworks_dir.join(name);
-            fs::copy_dir(&src, &dst).await
+            fs::copy_dir(&src, &dst)
+                .await
                 .with_context(|| format!("failed to copy framework {}", framework))?;
         } else if framework.ends_with(".dylib") {
             // Copy .dylib file
@@ -226,7 +237,8 @@ async fn copy_frameworks(contents_dir: &Path, settings: &Settings) -> Result<()>
                 ))
             })?;
             let dst = frameworks_dir.join(name);
-            fs::copy_file(&src, &dst).await
+            fs::copy_file(&src, &dst)
+                .await
                 .with_context(|| format!("failed to copy dylib {}", framework))?;
         } else {
             // Search standard framework locations

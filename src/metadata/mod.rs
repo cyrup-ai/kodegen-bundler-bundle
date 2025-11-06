@@ -1,7 +1,7 @@
 //! Metadata and binary discovery from single Cargo.toml
 
-use crate::error::{CliError, BundlerError, Result};
 use crate::bundler::BundleSettings;
+use crate::error::{BundlerError, CliError, Result};
 use std::path::Path;
 
 /// Package metadata extracted from Cargo.toml
@@ -169,45 +169,48 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
 /// Extracts configuration for platform-specific bundling including required
 /// bundle identifier for macOS.
 fn parse_bundle_settings(toml_value: &toml::Value) -> Result<BundleSettings> {
-    let mut settings = BundleSettings::default();
-
-    if let Some(metadata) = toml_value
+    // Extract the [package.metadata.bundle] section
+    let bundle_value = toml_value
         .get("package")
         .and_then(|p| p.get("metadata"))
-        .and_then(|m| m.get("bundle"))
-    {
-        // Parse bundle identifier (REQUIRED for macOS)
-        settings.identifier = metadata
-            .get("identifier")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        .and_then(|m| m.get("bundle"));
 
-        // Parse optional fields
-        settings.publisher = metadata
-            .get("publisher")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+    // If no bundle metadata, return defaults (this is valid - not all packages need bundling)
+    let Some(bundle_value) = bundle_value else {
+        log::debug!("No [package.metadata.bundle] section found, using defaults");
+        return Ok(BundleSettings::default());
+    };
 
-        settings.category = metadata
-            .get("category")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+    // Use TOML crate's native deserialization via try_into()
+    // This automatically parses ALL fields including nested platform sections
+    let settings: BundleSettings =
+        bundle_value
+            .clone()
+            .try_into()
+            .map_err(|e: toml::de::Error| {
+                BundlerError::Cli(CliError::InvalidArguments {
+                    reason: format!("Failed to parse [package.metadata.bundle] settings: {}", e),
+                })
+            })?;
 
-        settings.copyright = metadata
-            .get("copyright")
-            .and_then(|v| v.as_str())
-            .map(String::from);
-
-        settings.short_description = metadata
-            .get("short_description")
-            .and_then(|v| v.as_str())
-            .map(String::from);
-
-        settings.long_description = metadata
-            .get("long_description")
-            .and_then(|v| v.as_str())
-            .map(String::from);
-    }
+    // Optional: Debug logging to verify parsing
+    log::debug!("Parsed bundle settings:");
+    log::debug!("  identifier: {:?}", settings.identifier);
+    log::debug!("  publisher: {:?}", settings.publisher);
+    log::debug!("  debian depends: {:?}", settings.deb.depends);
+    log::debug!("  debian files: {:?}", settings.deb.files);
+    log::debug!("  rpm depends: {:?}", settings.rpm.depends);
+    log::debug!("  rpm release: {}", settings.rpm.release);
+    log::debug!(
+        "  macos signing_identity: {:?}",
+        settings.macos.signing_identity
+    );
+    log::debug!("  macos entitlements: {:?}", settings.macos.entitlements);
+    log::debug!("  windows cert_path: {:?}", settings.windows.cert_path);
+    log::debug!(
+        "  nsis install_mode: {:?}",
+        settings.windows.nsis.install_mode
+    );
 
     Ok(settings)
 }
