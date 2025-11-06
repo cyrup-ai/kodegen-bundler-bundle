@@ -59,9 +59,10 @@ mod settings;
 mod utils;
 
 // Public re-exports
+pub use builder::Bundler;
 pub use error::{Error, Result};
 pub use platform::PackageType;
-pub use settings::Settings;
+pub use settings::{BundleBinary, PackageSettings, Settings, SettingsBuilder};
 
 /// A bundled artifact result containing metadata about created installers.
 ///

@@ -16,9 +16,11 @@ use crate::error::Result;
 
 /// Main CLI entry point
 pub async fn run() -> Result<i32> {
-    let _args = Args::parse_args();
-    // TODO: Implement bundler command execution
-    Ok(0)
+    let args = Args::parse_args();
+    let runtime_config = RuntimeConfig::from(&args);
+
+    // Execute the bundle command
+    commands::execute_command(args, runtime_config).await
 }
 
 /// Parse arguments without executing (for testing)

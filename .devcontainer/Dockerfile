@@ -81,13 +81,12 @@ RUN rustc --version && cargo --version
 # ============================================================================
 FROM rust-toolchain AS bundler-builder
 
-# Copy bundler source into image
-COPY --chown=builder:builder . /bundler-source
-WORKDIR /bundler-source
-
-# Build and install bundler binary
-RUN cargo build --release && \
-    cargo install --path .
+# Install bundler from GitHub release
+# This works even when building from temp clones without bundler source
+ARG BUNDLER_VERSION=main
+RUN cargo install --git https://github.com/cyrup-ai/kodegen-bundler-bundle \
+    --branch ${BUNDLER_VERSION} \
+    kodegen_bundler_bundle
 
 # Verify bundler installation
 RUN kodegen_bundler_bundle --version || kodegen_bundler_bundle --help
