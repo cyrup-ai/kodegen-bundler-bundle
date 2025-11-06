@@ -26,6 +26,10 @@ use tokio::fs::{remove_file, copy, rename};
 /// 7. Sign DMG if signing identity configured
 /// 8. Clean up temporary files
 ///
+/// # Arguments
+/// * `settings` - Bundle configuration
+/// * `runtime_identity` - Optional signing identity from TempKeychain (via APPLE_CERTIFICATE env var)
+///
 /// # Returns
 /// Vector containing path to created DMG file.
 ///
@@ -34,28 +38,28 @@ use tokio::fs::{remove_file, copy, rename};
 /// # use std::path::PathBuf;
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// # struct Settings;
-/// # fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> { Ok(vec![]) }
+/// # fn bundle_project(settings: &Settings, runtime_identity: Option<&str>) -> Result<Vec<PathBuf>> { Ok(vec![]) }
 /// # fn example() -> Result<()> {
 /// # let settings = Settings;
-/// let paths = bundle_project(&settings)?;
+/// let paths = bundle_project(&settings, None)?;
 /// if !paths.is_empty() {
 ///     println!("Created DMG: {}", paths[0].display());
 /// }
 /// # Ok(())
 /// # }
 /// ```
-pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
+pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>) -> Result<Vec<PathBuf>> {
     log::info!("Creating DMG for {}", settings.product_name());
 
     // Step 1: Find or create .app bundle
-    let app_bundle_path = find_or_create_app_bundle(settings).await?;
+    let app_bundle_path = find_or_create_app_bundle(settings, runtime_identity).await?;
 
     // Step 2: Prepare DMG output directory
     let output_dir = settings.project_out_directory().join("bundle/dmg");
     fs::create_dir_all(&output_dir, false).await?;
 
     // Step 3: Create DMG file
-    let dmg_path = create_dmg(settings, &app_bundle_path, &output_dir).await?;
+    let dmg_path = create_dmg(settings, &app_bundle_path, &output_dir, runtime_identity).await?;
 
     // Step 4: Sign DMG if configured
     if should_sign_dmg(settings) {
@@ -74,7 +78,7 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
 ///
 /// # Returns
 /// PathBuf to the .app bundle
-async fn find_or_create_app_bundle(settings: &Settings) -> Result<PathBuf> {
+async fn find_or_create_app_bundle(settings: &Settings, runtime_identity: Option<&str>) -> Result<PathBuf> {
     let app_name = format!("{}.app", settings.product_name());
     let expected_path = settings
         .project_out_directory()
@@ -89,7 +93,7 @@ async fn find_or_create_app_bundle(settings: &Settings) -> Result<PathBuf> {
     // Create .app bundle using existing app bundler
     log::info!("Creating .app bundle for DMG...");
     use super::app;
-    let paths = app::bundle_project(settings).await?;
+    let paths = app::bundle_project(settings, runtime_identity).await?;
 
     paths
         .into_iter()
@@ -120,7 +124,7 @@ async fn find_or_create_app_bundle(settings: &Settings) -> Result<PathBuf> {
 ///
 /// # Returns
 /// PathBuf to created DMG file
-async fn create_dmg(settings: &Settings, app_bundle: &Path, output_dir: &Path) -> Result<PathBuf> {
+async fn create_dmg(settings: &Settings, app_bundle: &Path, output_dir: &Path, runtime_identity: Option<&str>) -> Result<PathBuf> {
     let dmg_name = format!(
         "{}-{}.dmg",
         settings.product_name(),
@@ -158,8 +162,8 @@ async fn create_dmg(settings: &Settings, app_bundle: &Path, output_dir: &Path) -
 
     // Task 12: Sign and notarize the .app bundle BEFORE creating the DMG
     // This ensures the .app inside the DMG is properly signed and notarized
-    if settings.bundle_settings().macos.signing_identity.is_some() {
-        super::sign::sign_app(&staged_app, settings).await?;
+    if let Some(identity) = runtime_identity {
+        super::sign::sign_app(&staged_app, identity, settings).await?;
     }
 
     if super::sign::should_notarize(settings).await {

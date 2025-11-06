@@ -168,6 +168,89 @@ kodegen_bundler_release validate
 kodegen_bundler_release validate --verbose
 ```
 
+## Required Project Structure
+
+For best quality bundling across all platforms, your Rust project **MUST** follow this directory structure:
+
+```
+your-project/
+├── Cargo.toml                    # REQUIRED: [package.metadata.bundle] section
+├── src/
+│   └── main.rs
+├── assets/                       # REQUIRED for bundling
+│   └── img/                      # REQUIRED for bundling
+│       ├── icon.icns             # REQUIRED for macOS (.app, .dmg)
+│       ├── icon.ico              # REQUIRED for Windows (.msi, .exe)
+│       ├── icon_16x16.png        # REQUIRED for Linux (16px)
+│       ├── icon_16x16@2x.png     # REQUIRED for Linux (16px @2x = 32px actual)
+│       ├── icon_32x32.png        # REQUIRED for Linux (32px)
+│       ├── icon_32x32@2x.png     # REQUIRED for Linux (32px @2x = 64px actual)
+│       ├── icon_128x128.png      # REQUIRED for Linux (128px)
+│       ├── icon_128x128@2x.png   # REQUIRED for Linux (128px @2x = 256px actual)
+│       ├── icon_256x256.png      # REQUIRED for Linux (256px)
+│       ├── icon_256x256@2x.png   # REQUIRED for Linux (256px @2x = 512px actual)
+│       ├── icon_512x512.png      # REQUIRED for Linux (512px)
+│       └── icon_512x512@2x.png   # REQUIRED for Linux (512px @2x = 1024px actual)
+└── target/
+    └── release/
+        └── your-binary           # Built with cargo build --release
+```
+
+### Required Assets
+
+The bundler requires platform-specific icon files in `assets/img/` for **best quality** across all platforms:
+
+#### macOS Icons (REQUIRED for .app, .dmg)
+
+| File | Format | Contains |
+|------|--------|----------|
+| `icon.icns` | macOS Icon Image format | All sizes: 16x16, 16x16@2x, 32x32, 32x32@2x, 128x128, 128x128@2x, 256x256, 256x256@2x, 512x512, 512x512@2x |
+
+**Create with:** `iconutil -c icns icon.iconset/`
+
+#### Windows Icons (REQUIRED for .msi, .exe)
+
+| File | Format | Contains |
+|------|--------|----------|
+| `icon.ico` | Windows Icon format | All sizes: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256 |
+
+**Create with:** ImageMagick, GIMP, or online converters
+
+#### Linux Icons (REQUIRED for .deb, .rpm, AppImage)
+
+| File | Actual Size | Purpose |
+|------|-------------|---------|
+| `icon_16x16.png` | 16×16 pixels | Standard DPI 16px icon |
+| `icon_16x16@2x.png` | 32×32 pixels | High DPI 16px icon |
+| `icon_32x32.png` | 32×32 pixels | Standard DPI 32px icon |
+| `icon_32x32@2x.png` | 64×64 pixels | High DPI 32px icon |
+| `icon_128x128.png` | 128×128 pixels | Standard DPI 128px icon |
+| `icon_128x128@2x.png` | 256×256 pixels | High DPI 128px icon |
+| `icon_256x256.png` | 256×256 pixels | Standard DPI 256px icon |
+| `icon_256x256@2x.png` | 512×512 pixels | High DPI 256px icon |
+| `icon_512x512.png` | 512×512 pixels | Standard DPI 512px icon |
+| `icon_512x512@2x.png` | 1024×1024 pixels | High DPI 512px icon |
+
+**Important:**
+- All PNG files must be at the exact pixel dimensions specified
+- @2x variants are for high-DPI/Retina displays
+- Bundler automatically places icons in correct freedesktop.org hicolor directories
+- No conversion - files copied directly for best quality
+
+### Required Cargo.toml Configuration
+
+Your `Cargo.toml` **MUST** include the `[package.metadata.bundle]` section with a bundle identifier:
+
+```toml
+[package.metadata.bundle]
+identifier = "com.yourcompany.yourapp"  # REQUIRED for macOS bundles
+```
+
+**Bundle identifier requirements**:
+- Reverse domain notation (e.g., `com.example.app`)
+- Required for macOS code signing
+- Used for application identification
+
 ## Configuration
 
 ### Environment Variables
@@ -198,24 +281,27 @@ export APPLE_API_KEY_ID=<key-id>
 export APPLE_API_ISSUER_ID=<issuer-id>
 ```
 
-### Cargo.toml Metadata
+### Cargo.toml Metadata (Optional Configuration)
 
-Configure bundling behavior in your workspace `Cargo.toml`:
+Additional bundling configuration in your workspace `Cargo.toml`:
 
 ```toml
 [package.metadata.bundle]
-identifier = "com.example.myapp"
-publisher = "Example Inc."
-icon = ["assets/icon.png"]
-category = "Developer Tool"
-short_description = "My awesome application"
+identifier = "com.example.myapp"        # REQUIRED (see above)
+publisher = "Example Inc."               # Optional
+category = "Developer Tool"              # Optional
+short_description = "My awesome app"     # Optional
+copyright = "Copyright © 2024 Example"   # Optional
 
+# Platform-specific configuration (optional)
 [package.metadata.bundle.linux.deb]
 depends = ["libc6"]
 
 [package.metadata.bundle.linux.rpm]
 requires = ["glibc"]
 ```
+
+**Note**: The `icon` field is **NOT** used. Icons are auto-discovered from `assets/img/` directory.
 
 ## Building Locally
 

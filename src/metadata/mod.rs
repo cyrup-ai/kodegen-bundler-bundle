@@ -1,6 +1,7 @@
 //! Metadata and binary discovery from single Cargo.toml
 
 use crate::error::{CliError, BundlerError, Result};
+use crate::bundler::BundleSettings;
 use std::path::Path;
 
 /// Package metadata extracted from Cargo.toml
@@ -33,6 +34,9 @@ pub struct CargoManifest {
 
     /// Primary binary name (from [[bin]] or package.name)
     pub binary_name: String,
+
+    /// Bundle settings (from [package.metadata.bundle] section + asset discovery)
+    pub bundle_settings: BundleSettings,
 }
 
 /// Load complete manifest from Cargo.toml (single read + parse)
@@ -141,8 +145,146 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
             })
         })?;
 
+    // Step 5: Parse bundle settings from [package.metadata.bundle] section
+    let cargo_dir = cargo_toml_path.parent().ok_or_else(|| {
+        BundlerError::Cli(CliError::InvalidArguments {
+            reason: "Invalid Cargo.toml path".to_string(),
+        })
+    })?;
+
+    let mut bundle_settings = parse_bundle_settings(&toml_value)?;
+
+    // Step 6: Discover assets from conventional location
+    discover_bundle_assets(cargo_dir, &mut bundle_settings)?;
+
     Ok(CargoManifest {
         metadata,
         binary_name,
+        bundle_settings,
     })
+}
+
+/// Parse bundle settings from [package.metadata.bundle] section
+///
+/// Extracts configuration for platform-specific bundling including required
+/// bundle identifier for macOS.
+fn parse_bundle_settings(toml_value: &toml::Value) -> Result<BundleSettings> {
+    let mut settings = BundleSettings::default();
+
+    if let Some(metadata) = toml_value
+        .get("package")
+        .and_then(|p| p.get("metadata"))
+        .and_then(|m| m.get("bundle"))
+    {
+        // Parse bundle identifier (REQUIRED for macOS)
+        settings.identifier = metadata
+            .get("identifier")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        // Parse optional fields
+        settings.publisher = metadata
+            .get("publisher")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        settings.category = metadata
+            .get("category")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        settings.copyright = metadata
+            .get("copyright")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        settings.short_description = metadata
+            .get("short_description")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        settings.long_description = metadata
+            .get("long_description")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+    }
+
+    Ok(settings)
+}
+
+/// Discover bundle assets from conventional directory structure
+///
+/// Scans for REQUIRED platform-specific icon files in assets/img/:
+/// - icon.icns (macOS)
+/// - icon.ico (Windows)
+/// - icon_*x*.png (Linux - multiple sizes including @2x variants)
+///
+/// Files are only added if they exist. Platform-specific bundlers will
+/// error if their required icon is missing.
+fn discover_bundle_assets(package_root: &Path, settings: &mut BundleSettings) -> Result<()> {
+    let assets_dir = package_root.join("assets").join("img");
+
+    if !assets_dir.exists() {
+        log::warn!("Assets directory not found: {}", assets_dir.display());
+        log::warn!("Expected platform-specific icons in assets/img/");
+        return Ok(());
+    }
+
+    let mut icons = Vec::new();
+
+    // Platform-specific icons (macOS, Windows)
+    let platform_icons = [
+        ("icon.icns", "macOS"),
+        ("icon.ico", "Windows"),
+    ];
+
+    for (filename, platform) in platform_icons {
+        let icon_path = assets_dir.join(filename);
+        if icon_path.exists() {
+            log::info!("Found {} icon: {}", platform, icon_path.display());
+            icons.push(icon_path);
+        } else {
+            log::debug!("{} icon not found: {}", platform, icon_path.display());
+        }
+    }
+
+    // Linux PNG icons (multiple sizes + @2x variants)
+    let linux_icon_sizes = [
+        "icon_16x16.png",
+        "icon_16x16@2x.png",
+        "icon_32x32.png",
+        "icon_32x32@2x.png",
+        "icon_128x128.png",
+        "icon_128x128@2x.png",
+        "icon_256x256.png",
+        "icon_256x256@2x.png",
+        "icon_512x512.png",
+        "icon_512x512@2x.png",
+    ];
+
+    let mut linux_icons_found = 0;
+    for filename in linux_icon_sizes {
+        let icon_path = assets_dir.join(filename);
+        if icon_path.exists() {
+            log::debug!("Found Linux icon: {}", filename);
+            icons.push(icon_path);
+            linux_icons_found += 1;
+        }
+    }
+
+    if linux_icons_found > 0 {
+        log::info!("Found {} Linux PNG icons", linux_icons_found);
+    } else {
+        log::debug!("No Linux PNG icons found");
+    }
+
+    if !icons.is_empty() {
+        let icon_count = icons.len();
+        settings.icon = Some(icons);
+        log::info!("Discovered {} total icon files", icon_count);
+    } else {
+        log::warn!("No icon files found in assets/img/");
+    }
+
+    Ok(())
 }

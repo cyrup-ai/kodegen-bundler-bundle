@@ -62,7 +62,7 @@ mod utils;
 pub use builder::Bundler;
 pub use error::{Error, Result};
 pub use platform::PackageType;
-pub use settings::{BundleBinary, PackageSettings, Settings, SettingsBuilder};
+pub use settings::{BundleBinary, BundleSettings, PackageSettings, Settings, SettingsBuilder};
 
 /// A bundled artifact result containing metadata about created installers.
 ///

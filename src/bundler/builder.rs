@@ -313,11 +313,13 @@ impl Bundler {
                 }
                 #[cfg(target_os = "macos")]
                 PackageType::MacOsBundle => {
-                    crate::bundler::platform::macos::app::bundle_project(&self.settings).await?
+                    let identity = self._temp_keychain.as_ref().map(|k| k.signing_identity());
+                    crate::bundler::platform::macos::app::bundle_project(&self.settings, identity).await?
                 }
                 #[cfg(target_os = "macos")]
                 PackageType::Dmg => {
-                    crate::bundler::platform::macos::dmg::bundle_project(&self.settings).await?
+                    let identity = self._temp_keychain.as_ref().map(|k| k.signing_identity());
+                    crate::bundler::platform::macos::dmg::bundle_project(&self.settings, identity).await?
                 }
                 #[cfg(target_os = "windows")]
                 PackageType::Nsis => {

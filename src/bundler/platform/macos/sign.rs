@@ -9,16 +9,17 @@ use std::path::Path;
 /// Sign a macOS app bundle using kodegen_sign
 ///
 /// This function:
-/// 1. Checks if signing is configured (signing_identity present)
+/// 1. Signs the bundle using the provided identity
 /// 2. Calls kodegen_bundler_sign::macos::sign_with_entitlements with hardened runtime
-/// 3. Verifies the signature
+/// 3. Uses entitlements from conventional path if present
 ///
 /// # Arguments
 /// * `app_bundle` - Path to the .app bundle to sign
-/// * `settings` - Bundler settings containing signing configuration
+/// * `identity` - Signing identity from TempKeychain (extracted from APPLE_CERTIFICATE env var)
+/// * `settings` - Bundler settings containing optional entitlements path
 ///
 /// # Returns
-/// * `Ok(())` - Signing succeeded or was skipped (no identity configured)
+/// * `Ok(())` - Signing succeeded
 /// * `Err(Error)` - Signing failed
 ///
 /// # Example
@@ -26,21 +27,14 @@ use std::path::Path;
 /// # use std::path::Path;
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// # struct Settings;
-/// # fn sign_app(path: &Path, settings: &Settings) -> Result<()> { Ok(()) }
+/// # fn sign_app(path: &Path, identity: &str, settings: &Settings) -> Result<()> { Ok(()) }
 /// # fn example() -> Result<()> {
 /// # let settings = Settings;
-/// sign_app(Path::new("MyApp.app"), &settings)?;
+/// sign_app(Path::new("MyApp.app"), "Developer ID Application: ...", &settings)?;
 /// # Ok(())
 /// # }
 /// ```
-pub async fn sign_app(app_bundle: &Path, settings: &Settings) -> Result<()> {
-    let identity = match &settings.bundle_settings().macos.signing_identity {
-        Some(id) => id,
-        None => {
-            log::info!("No signing identity configured, skipping signing");
-            return Ok(());
-        }
-    };
+pub async fn sign_app(app_bundle: &Path, identity: &str, settings: &Settings) -> Result<()> {
 
     log::info!(
         "Signing {} with identity '{}'",

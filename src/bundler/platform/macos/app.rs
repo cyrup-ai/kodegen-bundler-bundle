@@ -14,7 +14,11 @@ use tokio::fs as tokio_fs;
 ///
 /// Creates the bundle structure with Info.plist, binaries, resources, and optional frameworks.
 /// Returns a vector containing the path to the created .app bundle.
-pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
+///
+/// # Arguments
+/// * `settings` - Bundle configuration
+/// * `runtime_identity` - Optional signing identity from TempKeychain (via APPLE_CERTIFICATE env var)
+pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>) -> Result<Vec<PathBuf>> {
     let app_name = format!("{}.app", settings.product_name());
     let app_bundle_path = settings
         .project_out_directory()
@@ -79,9 +83,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     // Copy custom files
     copy_custom_files(&contents_dir, settings).await?;
 
-    // Sign if configured
-    if settings.bundle_settings().macos.signing_identity.is_some() {
-        super::sign::sign_app(&app_bundle_path, settings).await?;
+    // Sign if identity provided (from TempKeychain via APPLE_CERTIFICATE env var)
+    if let Some(identity) = runtime_identity {
+        super::sign::sign_app(&app_bundle_path, identity, settings).await?;
     }
 
     // Notarize if configured and credentials available

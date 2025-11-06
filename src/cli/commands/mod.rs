@@ -107,6 +107,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     let settings = SettingsBuilder::new()
         .project_out_directory(&target_dir)
         .package_settings(package_settings)
+        .bundle_settings(manifest.bundle_settings)
         .binaries(vec![bundle_binary])
         .package_types(vec![package_type])
         .build()?;
