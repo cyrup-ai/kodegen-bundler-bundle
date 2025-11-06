@@ -105,9 +105,15 @@ pub async fn is_image_up_to_date(
 ///
 /// # Returns
 ///
-/// * `Ok(days)` - Number of days since image was created
+/// * `Ok(days)` - Number of days since image was created (always >= 0)
 /// * `Err` - Could not determine image age
-pub async fn get_image_age_days(image_id: &str) -> Result<i64, BundlerError> {
+///
+/// # Clock Skew Handling
+///
+/// If the image timestamp is in the future (due to clock synchronization issues),
+/// this function logs a warning and returns 0 (treats image as brand new).
+/// This prevents negative age values from bypassing rebuild checks.
+pub async fn get_image_age_days(image_id: &str) -> Result<u64, BundlerError> {
     // Get image creation timestamp from Docker
     let inspect_output = Command::new("docker")
         .args(["inspect", "-f", "{{.Created}}", image_id])
@@ -143,5 +149,17 @@ pub async fn get_image_age_days(image_id: &str) -> Result<i64, BundlerError> {
     let now = Utc::now();
     let created_utc: DateTime<Utc> = created_time.into();
 
-    Ok((now - created_utc).num_days())
+    // Detect clock skew: image timestamp is in the future
+    if created_utc > now {
+        log::warn!(
+            "Docker image timestamp ({}) is in the future (current time: {}). \
+             This indicates system clock is incorrect or out of sync. \
+             Treating image as brand new (age 0 days) to avoid rebuild errors.",
+            created_utc.format("%Y-%m-%d %H:%M:%S UTC"),
+            now.format("%Y-%m-%d %H:%M:%S UTC")
+        );
+        return Ok(0);
+    }
+
+    Ok((now - created_utc).num_days() as u64)
 }

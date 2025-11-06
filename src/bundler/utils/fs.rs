@@ -40,28 +40,46 @@ pub async fn create_file(path: &Path) -> Result<BufWriter<File>> {
 /// Creates the given directory path, erasing it first if specified.
 #[allow(dead_code)]
 pub async fn create_dir(path: &Path, erase: bool) -> Result<()> {
-    if erase && path.exists() {
-        remove_dir_all(path).await?;
+    if erase {
+        // Try removal, ignore NotFound (idempotent)
+        match fs::remove_dir_all(path).await {
+            Ok(()) => {},
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {},
+            Err(e) => return Err(e.into()),
+        }
     }
-    Ok(fs::create_dir(path).await?)
+    
+    // Try creation, ignore AlreadyExists (make idempotent)
+    match fs::create_dir(path).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 /// Creates all of the directories of the specified path, erasing it first if specified.
 #[allow(dead_code)]
 pub async fn create_dir_all(path: &Path, erase: bool) -> Result<()> {
-    if erase && path.exists() {
-        remove_dir_all(path).await?;
+    if erase {
+        // Try removal, ignore NotFound (idempotent)
+        match fs::remove_dir_all(path).await {
+            Ok(()) => {},
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {},
+            Err(e) => return Err(e.into()),
+        }
     }
+    
+    // create_dir_all is already idempotent - succeeds even if dir exists
     Ok(fs::create_dir_all(path).await?)
 }
 
 /// Removes the directory and its contents if it exists.
 #[allow(dead_code)]
 pub async fn remove_dir_all(path: &Path) -> Result<()> {
-    if path.exists() {
-        Ok(fs::remove_dir_all(path).await?)
-    } else {
-        Ok(())
+    match fs::remove_dir_all(path).await {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()), // Idempotent
+        Err(e) => Err(e.into()),
     }
 }
 

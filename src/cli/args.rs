@@ -1,11 +1,8 @@
 //! Command line argument parsing and validation.
-#![allow(dead_code)] // Public API - items may be used by external consumers
-
 //!
 //! This module provides comprehensive CLI argument parsing using clap,
 //! with proper validation and error handling.
 
-use super::retry_config::RetryConfig;
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -98,11 +95,6 @@ impl Args {
         Self::parse()
     }
 
-    /// Check if running in verbose mode
-    pub fn is_verbose(&self) -> bool {
-        self.verbose
-    }
-
     /// Validate arguments for consistency
     pub fn validate(&self) -> Result<(), String> {
         // Validate repo path
@@ -157,29 +149,15 @@ impl Args {
 /// Configuration derived from command line arguments
 #[derive(Debug)]
 pub struct RuntimeConfig {
-    /// Repository root path
-    pub repo_path: PathBuf,
     /// Verbosity level
     pub verbosity: VerbosityLevel,
     /// Output manager for colored terminal output
     output: super::OutputManager,
-    /// Docker container memory limit
-    pub docker_memory: Option<String>,
-    /// Docker container memory + swap limit  
-    pub docker_memory_swap: Option<String>,
-    /// Docker container CPU limit
-    pub docker_cpus: Option<String>,
-    /// Docker container process limit
-    pub docker_pids_limit: Option<u32>,
-    /// Retry configuration for various operations
-    pub retry_config: RetryConfig,
 }
 
 /// Verbosity level for output
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerbosityLevel {
-    /// Minimal output
-    Quiet,
     /// Standard output
     Normal,
     /// Detailed output
@@ -200,43 +178,21 @@ impl From<&Args> for RuntimeConfig {
         );
 
         Self {
-            repo_path: args.repo_path.clone(),
             verbosity,
             output,
-            // Docker container limits
-            docker_memory: args.docker_memory.clone(),
-            docker_memory_swap: args.docker_memory_swap.clone(),
-            docker_cpus: args.docker_cpus.clone(),
-            docker_pids_limit: args.docker_pids_limit,
-            retry_config: RetryConfig::from_env(),
         }
     }
 }
 
 impl RuntimeConfig {
-    /// Check if output should be suppressed
-    pub fn is_quiet(&self) -> bool {
-        self.verbosity == VerbosityLevel::Quiet
-    }
-
     /// Check if verbose output is enabled
     pub fn is_verbose(&self) -> bool {
         self.verbosity == VerbosityLevel::Verbose
     }
 
-    /// Print message if not in quiet mode
-    pub fn println(&self, message: &str) {
-        self.output.println(message);
-    }
-
     /// Print verbose message if in verbose mode
     pub fn verbose_println(&self, message: &str) {
         self.output.verbose(message);
-    }
-
-    /// Print error message (always shown)
-    pub fn error_println(&self, message: &str) {
-        self.output.error(message);
     }
 
     /// Print warning message if not in quiet mode
@@ -257,16 +213,6 @@ impl RuntimeConfig {
     /// Print warning message (alias for warning_println for convenience)
     pub fn warn(&self, message: &str) {
         self.output.warn(message);
-    }
-
-    /// Print error message (always shown, alias for error_println)
-    pub fn error(&self, message: &str) {
-        self.output.error(message);
-    }
-
-    /// Print info message
-    pub fn info(&self, message: &str) {
-        self.output.info(message);
     }
 
     /// Print progress message

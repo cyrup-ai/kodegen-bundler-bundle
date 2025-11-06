@@ -1,6 +1,4 @@
 //! Resource limits for Docker containers.
-#![allow(dead_code)] // Public API - items may be used by external consumers
-
 //!
 //! Controls memory, CPU, and process limits to prevent containers from
 //! consuming excessive host resources during cross-platform builds.
@@ -62,6 +60,7 @@ impl ContainerLimits {
     }
 
     /// Parse memory string like "4g", "4096m", "4G", "2048M" to megabytes.
+    #[allow(dead_code)] // Used by from_cli, kept for future CLI argument parsing
     fn parse_memory_to_mb(memory: &str) -> Result<u64, String> {
         let memory = memory.trim().to_lowercase();
 
@@ -94,6 +93,7 @@ impl ContainerLimits {
     /// Creates limits from CLI arguments.
     ///
     /// Validates that memory_swap >= memory.
+    #[allow(dead_code)] // Public API with extensive tests, intended for future CLI integration
     pub fn from_cli(
         memory: String,
         memory_swap: Option<String>,

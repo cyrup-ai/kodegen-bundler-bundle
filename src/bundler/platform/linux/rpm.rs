@@ -1,6 +1,4 @@
 //! RPM package (.rpm) bundler for Red Hat-based distributions.
-#![allow(dead_code)] // Public API - items may be used by external consumers
-
 //!
 //! Creates RPM packages using the rpm-rs crate with proper metadata,
 //! dependencies, and file structure.

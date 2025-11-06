@@ -7,7 +7,6 @@ mod args;
 pub mod commands;
 mod docker;
 mod output;
-mod retry_config;
 
 pub use args::{Args, RuntimeConfig};
 pub use output::OutputManager;

@@ -242,7 +242,21 @@ impl ContainerRunner {
 
         // Retrieve captured stderr from background task
         let stderr_lines = if let Some(handle) = stderr_handle {
-            handle.await.unwrap_or_default()
+            match handle.await {
+                Ok(lines) => lines,
+                Err(join_err) => {
+                    // IMPORTANT: Warn user that stderr capture failed
+                    // This helps explain why OOM detection might not work
+                    runtime_config.warn(&format!(
+                        "Warning: Failed to capture container stderr output: {}",
+                        join_err
+                    ));
+                    runtime_config.warn(
+                        "OOM detection may be incomplete. Check system logs if container was killed."
+                    );
+                    Vec::new()  // Return empty vec for graceful degradation
+                }
+            }
         } else {
             Vec::new()
         };
