@@ -171,33 +171,37 @@ impl ContainerRunner {
                 })
             })?;
 
-        // Spawn background task to capture stderr for OOM detection
-        let stderr_handle = child.stderr.take().map(|stderr| {
-            tokio::spawn(async move {
-                let reader = BufReader::new(stderr);
-                let mut lines = reader.lines();
-                let mut captured_lines = Vec::new();
+        // Process both stdout and stderr concurrently to avoid race conditions
+        // Both streams must complete before we check exit status
+        let (_, stderr_result) = tokio::join!(
+            // Process stdout: stream in real-time
+            async {
+                if let Some(stdout) = child.stdout.take() {
+                    let reader = BufReader::new(stdout);
+                    let mut lines = reader.lines();
 
-                while let Ok(Some(line)) = lines.next_line().await {
-                    captured_lines.push(line);
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        runtime_config.indent(&line);
+                    }
                 }
+            },
+            // Process stderr: capture for OOM detection
+            async {
+                if let Some(stderr) = child.stderr.take() {
+                    let reader = BufReader::new(stderr);
+                    let mut lines = reader.lines();
+                    let mut captured_lines = Vec::new();
 
-                captured_lines
-            })
-        });
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        captured_lines.push(line);
+                    }
 
-        // Spawn background task to stream stdout in real-time
-        let stdout_handle = child.stdout.take().map(|stdout| {
-            let runtime_config = runtime_config.clone();
-            tokio::spawn(async move {
-                let reader = BufReader::new(stdout);
-                let mut lines = reader.lines();
-
-                while let Ok(Some(line)) = lines.next_line().await {
-                    runtime_config.indent(&line);
+                    Some(captured_lines)
+                } else {
+                    None
                 }
-            })
-        });
+            }
+        );
 
         // Wait for child process completion with timeout
         let status = tokio::time::timeout(DOCKER_RUN_TIMEOUT, child.wait()).await;
@@ -243,36 +247,8 @@ impl ContainerRunner {
             }
         };
 
-        // Wait for stdout task to complete
-        if let Some(handle) = stdout_handle {
-            if let Err(join_err) = handle.await {
-                runtime_config.warn(&format!(
-                    "Warning: Failed to complete stdout streaming: {}",
-                    join_err
-                ));
-            }
-        }
-
-        // Retrieve captured stderr from background task
-        let stderr_lines = if let Some(handle) = stderr_handle {
-            match handle.await {
-                Ok(lines) => lines,
-                Err(join_err) => {
-                    // IMPORTANT: Warn user that stderr capture failed
-                    // This helps explain why OOM detection might not work
-                    runtime_config.warn(&format!(
-                        "Warning: Failed to capture container stderr output: {}",
-                        join_err
-                    ));
-                    runtime_config.warn(
-                        "OOM detection may be incomplete. Check system logs if container was killed."
-                    );
-                    Vec::new()  // Return empty vec for graceful degradation
-                }
-            }
-        } else {
-            Vec::new()
-        };
+        // Extract captured stderr lines (both streams already completed via tokio::join!)
+        let stderr_lines = stderr_result.unwrap_or_default();
 
         Ok(ContainerRunResult {
             status,

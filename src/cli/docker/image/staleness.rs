@@ -7,6 +7,19 @@ use tokio::process::Command;
 
 use super::utils::humanize_duration;
 
+/// Tolerance window for timestamp comparison to handle filesystem precision mismatches.
+///
+/// Filesystems have varying timestamp precision:
+/// - HFS+: 1 second
+/// - APFS/ext4/XFS: 1 nanosecond  
+/// - NTFS: 100 nanoseconds
+///
+/// A 2-second tolerance prevents false positives from:
+/// - Filesystem timestamp rounding
+/// - Clock jitter
+/// - Build process startup time
+const STALENESS_TOLERANCE_SECS: i64 = 2;
+
 /// Checks if Docker image is up-to-date with current Dockerfile.
 ///
 /// Compares Dockerfile modification time against Docker image creation time.
@@ -80,20 +93,37 @@ pub async fn is_image_up_to_date(
     let dockerfile_time: DateTime<Utc> = dockerfile_modified.into();
     let image_time: DateTime<Utc> = image_created_time.into();
 
-    // Compare timestamps
-    if dockerfile_time > image_time {
+    // Compare timestamps with tolerance for filesystem precision
+    let time_diff_secs = (dockerfile_time - image_time).num_seconds();
+
+    if time_diff_secs > STALENESS_TOLERANCE_SECS {
+        // Dockerfile modified significantly after image creation - definitely stale
         runtime_config.verbose_println(&format!(
-            "Dockerfile modified: {} | Image created: {}",
+            "Dockerfile modified {} seconds after image creation (tolerance: {}s)",
+            time_diff_secs,
+            STALENESS_TOLERANCE_SECS
+        ));
+        runtime_config.verbose_println(&format!(
+            "  Dockerfile: {} | Image: {}",
             dockerfile_time.format("%Y-%m-%d %H:%M:%S UTC"),
             image_time.format("%Y-%m-%d %H:%M:%S UTC")
         ));
-        Ok(false) // Stale
-    } else {
+        Ok(false) // Definitely stale
+    } else if time_diff_secs < -STALENESS_TOLERANCE_SECS {
+        // Image created significantly after Dockerfile - definitely fresh
         runtime_config.verbose_println(&format!(
             "Image is up-to-date (created {} after Dockerfile)",
-            humanize_duration((image_time - dockerfile_time).num_seconds())
+            humanize_duration(-time_diff_secs)
         ));
-        Ok(true)
+        Ok(true) // Definitely fresh
+    } else {
+        // Within tolerance window - treat as fresh to avoid false positives
+        runtime_config.verbose_println(&format!(
+            "Image and Dockerfile times very close ({}s difference, tolerance: {}s) - treating as fresh",
+            time_diff_secs.abs(),
+            STALENESS_TOLERANCE_SECS
+        ));
+        Ok(true) // Within tolerance - assume fresh
     }
 }
 
