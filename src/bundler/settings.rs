@@ -872,6 +872,20 @@ pub struct BundleSettings {
     /// Default: None
     pub icon: Option<Vec<PathBuf>>,
 
+    /// Pre-made ICNS file for macOS (optional).
+    ///
+    /// If provided, this file will be copied directly instead of generating from PNGs.
+    ///
+    /// Default: None
+    pub icns: Option<PathBuf>,
+
+    /// Pre-made ICO file for Windows (optional).
+    ///
+    /// If provided, this file will be copied directly instead of generating from PNGs.
+    ///
+    /// Default: None
+    pub ico: Option<PathBuf>,
+
     /// Resource glob patterns to bundle.
     ///
     /// Example: `["config/**/*", "templates/**/*"]`

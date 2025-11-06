@@ -48,27 +48,15 @@ pub async fn bundle_project(settings: &Settings, runtime_identity: Option<&str>)
     let icon_path = resources_dir.join(&icon_filename);
 
     // Check for pre-made ICNS file in workspace assets
-    let premade_icns = settings
-        .project_out_directory()
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|root| root.join("assets/img/kodegen.icns"));
-
-    if let Some(ref premade_path) = premade_icns {
-        if premade_path.exists() {
-            // Use pre-made ICNS file
-            tokio_fs::copy(premade_path, &icon_path).await
-                .fs_context("failed to copy pre-made ICNS", &icon_path)?;
-        } else {
-            // Fall back to converting from PNGs
-            let icons = settings.icon_files().context("failed to load icon files")?;
-            super::icon::create_icns_file(&icons, &icon_path).await
-                .context("failed to create app icon")?;
-        }
+    // Check for pre-made ICNS from bundle settings
+    if let Some(ref icns_path) = settings.bundle_settings().icns {
+        tokio_fs::copy(icns_path, &icon_path).await
+            .fs_context("failed to copy pre-made ICNS", &icon_path)?;
     } else {
         // Fall back to converting from PNGs
         let icons = settings.icon_files().context("failed to load icon files")?;
-        super::icon::create_icns_file(&icons, &icon_path).await.context("failed to create app icon")?;
+        super::icon::create_icns_file(&icons, &icon_path).await
+            .context("failed to create app icon")?;
     }
 
     // Create Info.plist

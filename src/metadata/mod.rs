@@ -232,20 +232,19 @@ fn discover_bundle_assets(package_root: &Path, settings: &mut BundleSettings) ->
 
     let mut icons = Vec::new();
 
-    // Platform-specific icons (macOS, Windows)
-    let platform_icons = [
-        ("icon.icns", "macOS"),
-        ("icon.ico", "Windows"),
-    ];
+    // Check for pre-made platform-specific icons
+    let icns_path = assets_dir.join("icon.icns");
+    if icns_path.exists() {
+        log::info!("Found pre-made macOS icon: {}", icns_path.display());
+        settings.icns = Some(icns_path);
+    }
 
-    for (filename, platform) in platform_icons {
-        let icon_path = assets_dir.join(filename);
-        if icon_path.exists() {
-            log::info!("Found {} icon: {}", platform, icon_path.display());
-            icons.push(icon_path);
-        } else {
-            log::debug!("{} icon not found: {}", platform, icon_path.display());
-        }
+    let ico_path = assets_dir.join("icon.ico");
+    if ico_path.exists() {
+        log::info!("Found pre-made Windows icon: {}", ico_path.display());
+        settings.ico = Some(ico_path.clone());
+        // Also set NSIS installer icon
+        settings.windows.nsis.installer_icon = Some(ico_path);
     }
 
     // Linux PNG icons (multiple sizes + @2x variants)
