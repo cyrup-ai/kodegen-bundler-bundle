@@ -286,5 +286,14 @@ fn discover_bundle_assets(package_root: &Path, settings: &mut BundleSettings) ->
         log::warn!("No icon files found in assets/img/");
     }
 
+    // Discover entitlements.plist from conventional location
+    let entitlements_path = package_root.join("assets").join("entitlements.plist");
+    if entitlements_path.exists() {
+        log::info!("Found entitlements: {}", entitlements_path.display());
+        settings.macos.entitlements = Some(entitlements_path);
+    } else {
+        log::debug!("No entitlements file found at assets/entitlements.plist");
+    }
+
     Ok(())
 }
