@@ -14,6 +14,7 @@ use std::path::PathBuf;
 #[command(
     name = "kodegen_bundler_bundle",
     version,
+    disable_version_flag = true,
     about = "Platform package bundler for Rust binaries",
     long_about = "Creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage) for Rust binaries.
 
@@ -40,7 +41,7 @@ pub struct Args {
     pub version: String,
     
     /// Output directory for artifacts
-    #[arg(short, long, value_name = "PATH")]
+    #[arg(long, value_name = "PATH")]
     pub output_dir: Option<PathBuf>,
     
     /// Target architecture (e.g., x86_64-apple-darwin)
@@ -54,6 +55,16 @@ pub struct Args {
     /// Enable verbose output
     #[arg(short = 'V', long)]
     pub verbose: bool,
+
+    /// Optional output path for the created artifact
+    /// 
+    /// If specified, the bundler will move the created artifact to this exact path.
+    /// The bundler will create parent directories if they don't exist.
+    /// The filename should include the architecture (e.g., kodegen_0.1.0_arm64.deb).
+    /// 
+    /// Contract: Exit code 0 guarantees the artifact exists at this path.
+    #[arg(short = 'o', long, value_name = "PATH")]
+    pub output_binary: Option<PathBuf>,
 
     // ===== DOCKER CONTAINER LIMITS =====
 

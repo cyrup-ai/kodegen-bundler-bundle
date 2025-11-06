@@ -1,314 +1,301 @@
-# kodegen-bundler-release
+# kodegen-bundler-bundle
 
-**Production-quality release management and multi-platform bundling for Rust workspaces.**
+**Multi-platform package bundler for Rust applications.**
 
-[![Crates.io](https://img.shields.io/crates/v/kodegen_bundler_release.svg)](https://crates.io/crates/kodegen_bundler_release)
 [![License](https://img.shields.io/badge/license-Apache%202.0%20OR%20MIT-blue.svg)](LICENSE.md)
 [![Rust](https://img.shields.io/badge/rust-nightly--2024--10--20-orange.svg)](https://rust-lang.github.io/rustup/)
 
+## Overview
+
+`kodegen-bundler-bundle` is a standalone binary that creates platform-specific installation packages for Rust applications. It supports Linux (.deb, .rpm, AppImage), macOS (.app, .dmg), and Windows (.msi, .exe) package formats.
+
+This bundler is designed to be called programmatically by release workflows (like `kodegen-bundler-release`) with explicit output path contracts.
+
 ## Features
 
-- 🚀 **Atomic Release Operations** - All-or-nothing releases with automatic rollback on failure
-- 📦 **Multi-Platform Bundling** - Create native installers for Linux, macOS, and Windows
-- 🔄 **Version Synchronization** - Automatically update internal workspace dependencies
-- 🌳 **Pure Rust Git** - No `git` CLI dependency, uses [gix](https://github.com/Byron/gitoxide)
-- 📊 **Dependency-Ordered Publishing** - Publishes packages in correct topological order
-- 🛡️ **Isolated Workflow** - Operates in temporary clones to protect your working directory
-- ⏸️ **Resume & Rollback** - Continue interrupted releases or undo failed ones
-- 🎯 **GitHub Integration** - Automated release creation and artifact uploads
-- 🔐 **Code Signing** - macOS Developer ID and Windows Authenticode support
+- 📦 **Multi-Platform Support** - Linux (deb/rpm/AppImage), macOS (app/dmg), Windows (msi/exe)
+- 🎯 **Caller-Specified Output Paths** - Full control over artifact location and naming
+- 🔒 **Contract-Based Interface** - Exit code 0 guarantees artifact exists at specified path
+- 🚀 **Fast Execution** - Optimized bundling with minimal overhead
+- 🛡️ **Directory Management** - Automatic parent directory creation
+- 📊 **Diagnostic Output** - Detailed stdout/stderr for debugging
 
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
 # Install from crates.io
-cargo install kodegen_bundler_release
+cargo install kodegen_bundler_bundle
 
 # OR build from source
-git clone https://github.com/cyrup-ai/kodegen-bundler-release
-cd kodegen-bundler-release
+git clone https://github.com/cyrup-ai/kodegen-bundler-bundle
+cd kodegen-bundler-bundle
 cargo install --path .
 ```
 
-### Basic Usage
+## Basic Usage
 
 ```bash
-# Release with patch version bump (0.1.0 → 0.1.1)
-kodegen_bundler_release release patch
+# Bundle with automatic artifact path
+kodegen_bundler_bundle --repo-path . --platform deb --binary-name myapp --version 1.0.0
 
-# Preview changes without making modifications
-kodegen_bundler_release release minor --dry-run
-
-# Create platform-specific bundles
-kodegen_bundler_release bundle --platform deb
-
-# Resume an interrupted release
-kodegen_bundler_release resume
-
-# Rollback a failed release
-kodegen_bundler_release rollback
+# Bundle with caller-specified output path (recommended for automation)
+kodegen_bundler_bundle \
+  --repo-path . \
+  --platform deb \
+  --binary-name myapp \
+  --version 1.0.0 \
+  --output-binary /tmp/artifacts/myapp_1.0.0_arm64.deb
 ```
 
-## What It Does
+## Output Path Contract
 
-### Release Workflow
+### The `--output-binary` Flag
 
-When you run a release command, the tool:
+When `--output-binary` is specified, the bundler establishes a **strict contract** with the caller:
 
-1. **Validates** workspace structure and dependencies
-2. **Clones** your repository to `/tmp/kodegen-release-{timestamp}/` (isolated environment)
-3. **Updates** version numbers in all `Cargo.toml` files
-4. **Synchronizes** internal workspace dependency versions
-5. **Commits** changes with formatted commit message
-6. **Tags** the release (e.g., `v0.1.0`)
-7. **Signs** artifacts (macOS only, optional)
-8. **Bundles** platform packages (optional, enabled by default)
-9. **Pushes** to remote repository
-10. **Creates** GitHub release with notes
-11. **Uploads** signed artifacts and bundles
-12. **Publishes** packages to crates.io in dependency order
-13. **Cleans up** temporary clone
+#### Bundler Responsibilities
 
-**Your working directory is never modified.** All operations happen in an isolated temporary clone.
+1. **Create parent directories** - All directories in the output path are created if they don't exist
+2. **Move artifact** - The created artifact is moved (not copied) to the exact specified path
+3. **Verify existence** - Before returning, bundler verifies the file exists at the specified path
+4. **Return exit code 0** - Exit code 0 **guarantees** the file exists at the specified path
 
-### Supported Package Formats
+#### Contract Guarantees
 
-#### Linux Packages
-- **Debian (.deb)** - Ubuntu, Debian, and derivatives
-- **RPM (.rpm)** - Fedora, RHEL, CentOS, openSUSE
-- **AppImage (.AppImage)** - Portable, self-contained executables
+```
+If bundler returns exit code 0:
+  ✓ File exists at --output-binary path
+  ✓ File is complete and valid
+  ✓ All parent directories created
+  ✓ Original artifact removed from temp location
 
-#### macOS Packages
-- **App Bundle (.app)** - macOS application bundle
-- **DMG (.dmg)** - macOS disk image installer
+If bundler returns non-zero exit code:
+  ✗ File may not exist at specified path
+  ✗ Check stderr for error details
+```
 
-#### Windows Packages
-- **MSI (.msi)** - Windows Installer via WiX Toolset
-- **NSIS (.exe)** - Lightweight installer via NSIS
+#### Communication Protocol
+
+- **Exit codes**: Contractual communication (0 = success, file exists; non-zero = failure)
+- **stdout**: Diagnostic information only (artifact paths, progress messages)
+- **stderr**: Error details and warnings (diagnostic only, not contractual)
+
+**Important**: Callers should **only** rely on exit codes for contract enforcement. stdout and stderr are for human consumption and debugging, not programmatic parsing.
+
+## CLI Reference
+
+### Required Arguments
+
+```bash
+--repo-path <PATH>          # Path to repository root
+--platform <PLATFORM>       # Target platform (deb, rpm, appimage, dmg, app, nsis, exe)
+--binary-name <NAME>        # Name of the binary to bundle
+--version <VERSION>         # Package version (e.g., 1.0.0)
+```
+
+### Optional Arguments
+
+```bash
+--output-binary <PATH>      # Full output path including filename with architecture
+                           # Example: /tmp/artifacts/myapp_1.0.0_arm64.deb
+                           # Bundler creates parent dirs and moves artifact here
+                           # Exit code 0 guarantees file exists at this path
+
+--no-build                  # Skip building binaries (use existing in target/release)
+--target <TRIPLE>           # Rust target triple (e.g., x86_64-apple-darwin)
+```
+
+## Supported Platforms
+
+| Platform | Extension | Description |
+|----------|-----------|-------------|
+| `deb` | `.deb` | Debian/Ubuntu packages |
+| `rpm` | `.rpm` | RedHat/Fedora/CentOS packages |
+| `appimage` | `.AppImage` | Portable Linux executables |
+| `dmg` | `.dmg` | macOS disk image installers |
+| `app` | `.app` | macOS application bundles |
+| `nsis` | `.exe` | Windows NSIS installers |
 
 ## Usage Examples
 
-### Release Commands
-
-```bash
-# Standard release workflow
-kodegen_bundler_release release patch
-
-# Bump minor version (0.1.x → 0.2.0)
-kodegen_bundler_release release minor
-
-# Bump major version (0.x.y → 1.0.0)
-kodegen_bundler_release release major
-
-# Dry run (preview without changes)
-kodegen_bundler_release release patch --dry-run
-
-# Release without pushing to remote
-kodegen_bundler_release release patch --no-push
-
-# Release without GitHub release
-kodegen_bundler_release release patch --no-github-release
-
-# Release without creating bundles
-kodegen_bundler_release release patch --no-bundles
-
-# Keep temp clone for debugging
-kodegen_bundler_release release patch --keep-temp
-```
-
-### Bundle Commands
+### Basic Bundling (Auto Output Path)
 
 ```bash
 # Bundle for current platform
-kodegen_bundler_release bundle
+kodegen_bundler_bundle \
+  --repo-path /path/to/project \
+  --platform deb \
+  --binary-name myapp \
+  --version 1.0.0
 
-# Bundle specific platform
-kodegen_bundler_release bundle --platform deb
-kodegen_bundler_release bundle --platform dmg
-kodegen_bundler_release bundle --platform msi
-
-# Bundle without rebuilding binaries
-kodegen_bundler_release bundle --no-build
-
-# Bundle and upload to GitHub release
-kodegen_bundler_release bundle --upload --github-repo owner/repo
-
-# Bundle for specific architecture
-kodegen_bundler_release bundle --target x86_64-apple-darwin
+# Output: ./target/release/myapp_1.0.0_amd64.deb (or similar)
 ```
 
-### State Management Commands
+### Contract-Based Bundling (Caller-Specified Output)
 
 ```bash
-# Resume interrupted release
-kodegen_bundler_release resume
+# Release workflow specifies exact output path with architecture
+kodegen_bundler_bundle \
+  --repo-path /tmp/kodegen-release-12345 \
+  --platform deb \
+  --binary-name kodegen \
+  --version 2.0.0 \
+  --output-binary /tmp/kodegen-release-12345/artifacts/kodegen_2.0.0_arm64.deb \
+  --no-build
 
-# Check current release status
-kodegen_bundler_release status
-
-# Rollback failed release
-kodegen_bundler_release rollback
-
-# Force rollback (even for completed releases)
-kodegen_bundler_release rollback --force
-
-# Clean up state without rollback
-kodegen_bundler_release cleanup
+# Exit code 0 = file guaranteed at /tmp/kodegen-release-12345/artifacts/kodegen_2.0.0_arm64.deb
+# Bundler created /tmp/kodegen-release-12345/artifacts/ directory automatically
 ```
 
-### Validation Commands
+### macOS Bundle with Output Path
 
 ```bash
-# Validate workspace structure
-kodegen_bundler_release validate
-
-# Verbose validation output
-kodegen_bundler_release validate --verbose
+kodegen_bundler_bundle \
+  --repo-path . \
+  --platform dmg \
+  --binary-name MyApp \
+  --version 3.1.4 \
+  --output-binary ./dist/MyApp-3.1.4-arm64.dmg
 ```
+
+### Windows Installer with Output Path
+
+```bash
+kodegen_bundler_bundle \
+  --repo-path . \
+  --platform nsis \
+  --binary-name setup \
+  --version 0.5.0 \
+  --output-binary C:\builds\setup_0.5.0_x64_setup.exe
+```
+
+## Integration with Release Workflows
+
+The bundler is designed to integrate seamlessly with release automation tools like `kodegen-bundler-release`.
+
+### Typical Workflow Integration
+
+1. **Release workflow detects target architecture** (compile-time cfg attributes)
+2. **Release constructs output path** with explicit architecture in filename
+3. **Release invokes bundler** with `--output-binary` flag
+4. **Bundler creates directories** and moves artifact to specified path
+5. **Bundler returns exit 0** only if file exists
+6. **Release verifies contract** by checking file existence
+
+### Example: Release Workflow Calling Bundler
+
+```rust
+// In kodegen-bundler-release/src/cli/commands/release/impl.rs
+
+let arch = detect_target_architecture()?;  // "arm64", "amd64", etc.
+let filename = format!("kodegen_{}_{}. deb", version, arch);
+let output_path = temp_dir.join("artifacts").join(&filename);
+
+let output = Command::new("kodegen_bundler_bundle")
+    .arg("--repo-path").arg(temp_dir)
+    .arg("--platform").arg("deb")
+    .arg("--binary-name").arg("kodegen")
+    .arg("--version").arg(version)
+    .arg("--output-binary").arg(&output_path)  // ← Contract-based path
+    .arg("--no-build")
+    .output()?;
+
+// Contract enforcement
+if output.status.success() {
+    if !output_path.exists() {
+        return Err("Bundler contract violation: exit 0 but file missing");
+    }
+    // File guaranteed to exist here
+}
+```
+
+## Architecture Handling
+
+### Caller Responsibility
+
+The **caller** (e.g., release workflow) is responsible for:
+- Detecting the target architecture at compile time
+- Constructing the output filename with the correct architecture
+- Passing the complete path to bundler
+
+### Bundler Responsibility
+
+The **bundler** is responsible for:
+- Creating the package artifact
+- Creating parent directories in the output path
+- Moving the artifact to the specified location
+- Verifying the file exists before returning exit 0
+
+### Why This Design?
+
+This separation ensures:
+- **Release workflow** controls naming conventions and architecture detection
+- **Bundler** focuses solely on package creation and file management
+- **Contract** is enforced through exit codes, not output parsing
+- **Future-proof** for new architectures (no bundler code changes needed)
+
+## Error Handling
+
+### Exit Codes
+
+| Exit Code | Meaning |
+|-----------|---------|
+| `0` | Success - if --output-binary specified, file guaranteed to exist |
+| `1` | General error - check stderr |
+| Non-zero | Specific error - check stderr for details |
+
+### Common Errors
+
+#### Directory Creation Failed
+
+```
+Error: Failed to create output directory /path/to/output: Permission denied
+```
+
+**Solution**: Check write permissions on the parent directory.
+
+#### Artifact Move Failed
+
+```
+Error: Failed to move artifact from /tmp/bundle.deb to /output/app.deb: No such file or directory
+```
+
+**Solution**: Verify source artifact was created successfully. Check bundler logs.
+
+#### Contract Violation
+
+```
+Error: Move reported success but file does not exist at /output/app.deb
+```
+
+**Solution**: This indicates a bundler bug. Report to maintainers.
 
 ## Required Project Structure
 
-For best quality bundling across all platforms, your Rust project **MUST** follow this directory structure:
+For bundling to work, your project must have:
 
 ```
 your-project/
-├── Cargo.toml                    # REQUIRED: [package.metadata.bundle] section
+├── Cargo.toml                    # [package.metadata.bundle] section
 ├── src/
 │   └── main.rs
-├── assets/                       # REQUIRED for bundling
-│   └── img/                      # REQUIRED for bundling
-│       ├── icon.icns             # REQUIRED for macOS (.app, .dmg)
-│       ├── icon.ico              # REQUIRED for Windows (.msi, .exe)
-│       ├── icon_16x16.png        # REQUIRED for Linux (16px)
-│       ├── icon_16x16@2x.png     # REQUIRED for Linux (16px @2x = 32px actual)
-│       ├── icon_32x32.png        # REQUIRED for Linux (32px)
-│       ├── icon_32x32@2x.png     # REQUIRED for Linux (32px @2x = 64px actual)
-│       ├── icon_128x128.png      # REQUIRED for Linux (128px)
-│       ├── icon_128x128@2x.png   # REQUIRED for Linux (128px @2x = 256px actual)
-│       ├── icon_256x256.png      # REQUIRED for Linux (256px)
-│       ├── icon_256x256@2x.png   # REQUIRED for Linux (256px @2x = 512px actual)
-│       ├── icon_512x512.png      # REQUIRED for Linux (512px)
-│       └── icon_512x512@2x.png   # REQUIRED for Linux (512px @2x = 1024px actual)
+├── assets/
+│   └── img/
+│       ├── icon.icns             # macOS
+│       ├── icon.ico              # Windows
+│       └── icon_*x*.png          # Linux (multiple sizes)
 └── target/
     └── release/
-        └── your-binary           # Built with cargo build --release
+        └── your-binary           # Built binary
 ```
 
-### Required Assets
+See [kodegen-bundler-release README](../kodegen-bundler-release/README.md) for detailed asset requirements.
 
-The bundler requires platform-specific icon files in `assets/img/` for **best quality** across all platforms:
-
-#### macOS Icons (REQUIRED for .app, .dmg)
-
-| File | Format | Contains |
-|------|--------|----------|
-| `icon.icns` | macOS Icon Image format | All sizes: 16x16, 16x16@2x, 32x32, 32x32@2x, 128x128, 128x128@2x, 256x256, 256x256@2x, 512x512, 512x512@2x |
-
-**Create with:** `iconutil -c icns icon.iconset/`
-
-#### Windows Icons (REQUIRED for .msi, .exe)
-
-| File | Format | Contains |
-|------|--------|----------|
-| `icon.ico` | Windows Icon format | All sizes: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256 |
-
-**Create with:** ImageMagick, GIMP, or online converters
-
-#### Linux Icons (REQUIRED for .deb, .rpm, AppImage)
-
-| File | Actual Size | Purpose |
-|------|-------------|---------|
-| `icon_16x16.png` | 16×16 pixels | Standard DPI 16px icon |
-| `icon_16x16@2x.png` | 32×32 pixels | High DPI 16px icon |
-| `icon_32x32.png` | 32×32 pixels | Standard DPI 32px icon |
-| `icon_32x32@2x.png` | 64×64 pixels | High DPI 32px icon |
-| `icon_128x128.png` | 128×128 pixels | Standard DPI 128px icon |
-| `icon_128x128@2x.png` | 256×256 pixels | High DPI 128px icon |
-| `icon_256x256.png` | 256×256 pixels | Standard DPI 256px icon |
-| `icon_256x256@2x.png` | 512×512 pixels | High DPI 256px icon |
-| `icon_512x512.png` | 512×512 pixels | Standard DPI 512px icon |
-| `icon_512x512@2x.png` | 1024×1024 pixels | High DPI 512px icon |
-
-**Important:**
-- All PNG files must be at the exact pixel dimensions specified
-- @2x variants are for high-DPI/Retina displays
-- Bundler automatically places icons in correct freedesktop.org hicolor directories
-- No conversion - files copied directly for best quality
-
-### Required Cargo.toml Configuration
-
-Your `Cargo.toml` **MUST** include the `[package.metadata.bundle]` section with a bundle identifier:
-
-```toml
-[package.metadata.bundle]
-identifier = "com.yourcompany.yourapp"  # REQUIRED for macOS bundles
-```
-
-**Bundle identifier requirements**:
-- Reverse domain notation (e.g., `com.example.app`)
-- Required for macOS code signing
-- Used for application identification
-
-## Configuration
-
-### Environment Variables
-
-#### Required for Publishing
-
-```bash
-# crates.io API token
-export CARGO_REGISTRY_TOKEN=cio_xxxx
-
-# GitHub API token (for GitHub releases)
-export GITHUB_TOKEN=ghp_xxxx
-# OR
-export GH_TOKEN=ghp_xxxx
-```
-
-#### macOS Code Signing (Optional)
-
-```bash
-# Add to ~/.zshrc (loaded automatically on startup)
-export APPLE_CERTIFICATE=<base64-encoded-p12>
-export APPLE_CERTIFICATE_PASSWORD=<password>
-export APPLE_TEAM_ID=<team-id>
-
-# Optional: App Store Connect API (for notarization)
-export APPLE_API_KEY_CONTENT=<base64-key>
-export APPLE_API_KEY_ID=<key-id>
-export APPLE_API_ISSUER_ID=<issuer-id>
-```
-
-### Cargo.toml Metadata (Optional Configuration)
-
-Additional bundling configuration in your workspace `Cargo.toml`:
-
-```toml
-[package.metadata.bundle]
-identifier = "com.example.myapp"        # REQUIRED (see above)
-publisher = "Example Inc."               # Optional
-category = "Developer Tool"              # Optional
-short_description = "My awesome app"     # Optional
-copyright = "Copyright © 2024 Example"   # Optional
-
-# Platform-specific configuration (optional)
-[package.metadata.bundle.linux.deb]
-depends = ["libc6"]
-
-[package.metadata.bundle.linux.rpm]
-requires = ["glibc"]
-```
-
-**Note**: The `icon` field is **NOT** used. Icons are auto-discovered from `assets/img/` directory.
-
-## Building Locally
+## Building from Source
 
 ### Prerequisites
 
 - **Rust nightly** (edition 2024): `rustup install nightly && rustup default nightly`
-- **Git**: For version control operations
 - **Platform-specific tools**:
   - **Linux**: dpkg-dev, rpm, fakeroot
   - **macOS**: Xcode Command Line Tools
@@ -323,180 +310,10 @@ cargo build --release
 # Run tests
 cargo test
 
-# Format code
+# Format and lint
 cargo fmt
-
-# Lint
 cargo clippy -- -D warnings
 ```
-
-### Cross-Platform Bundling via Docker
-
-For creating Linux/Windows bundles from macOS (or vice versa), use Docker:
-
-```bash
-# Build Docker image (includes Wine, WiX, NSIS)
-kodegen_bundler_release bundle --platform msi --rebuild-image
-
-# Create Windows MSI from Linux/macOS
-kodegen_bundler_release bundle --platform msi
-
-# Create Linux packages from macOS
-kodegen_bundler_release bundle --platform deb
-```
-
-The tool automatically detects when cross-platform bundling is needed and uses Docker containers with appropriate toolchains.
-
-## Architecture Highlights
-
-### Isolated Release Strategy
-
-All release operations execute in **temporary clones** to ensure your working directory remains untouched:
-
-- Clone created at `/tmp/kodegen-release-{timestamp}/`
-- Active temp path saved to `~/.kodegen-temp-release` for resume support
-- Automatic cleanup after completion (unless `--keep-temp`)
-- Resume capability across sessions
-
-### Dependency-Ordered Publishing
-
-The tool analyzes your workspace dependency graph and publishes packages in the correct order:
-
-```
-Tier 0: [utils, schema]           ← No dependencies
-Tier 1: [mcp-tool, mcp-client]    ← Depends on Tier 0
-Tier 2: [tools-git, tools-fs]     ← Depends on Tier 1
-Tier 3: [kodegen]                 ← Depends on Tier 2
-```
-
-Packages within the same tier publish in parallel (configurable concurrency), while tiers execute sequentially.
-
-### State-Based Resume
-
-Release progress is tracked in `.cyrup_release_state.json` with phases:
-
-1. Validation
-2. VersionUpdate
-3. GitOperations
-4. GitHubRelease
-5. Publishing
-6. Completed
-
-If a release is interrupted, `resume` continues from the last successful checkpoint.
-
-### Format-Preserving TOML Editing
-
-Version updates preserve your `Cargo.toml` formatting using `toml_edit`:
-
-- Comments preserved
-- Custom formatting maintained
-- Whitespace unchanged
-- Only version fields modified
-
-## Troubleshooting
-
-### "Binary not found in target/release"
-
-**Solution**: Build binaries before bundling:
-
-```bash
-cargo build --release --workspace
-# OR let bundler build automatically
-kodegen_bundler_release bundle  # No --no-build flag
-```
-
-### "Another release is in progress"
-
-**Solution**: Resume or clean up the existing release:
-
-```bash
-kodegen_bundler_release resume
-# OR
-kodegen_bundler_release cleanup
-```
-
-### "GitHub token not found"
-
-**Solution**: Set the required environment variable:
-
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-# OR add to ~/.bashrc or ~/.zshrc
-```
-
-### macOS Code Signing Fails
-
-**Solution**: Verify credentials are loaded:
-
-```bash
-echo $APPLE_TEAM_ID
-echo $APPLE_CERTIFICATE | base64 -d | openssl pkcs12 -info -nodes -passin pass:$APPLE_CERTIFICATE_PASSWORD
-```
-
-### Docker Build Failures
-
-**Solution**: Increase Docker memory limit:
-
-```bash
-kodegen_bundler_release bundle --platform msi --docker-memory 4096
-```
-
-## Development
-
-### Project Structure
-
-```
-kodegen-bundler-release/
-├── src/
-│   ├── bundler/         # Platform-specific bundling logic
-│   ├── cli/             # Command parsing and orchestration
-│   ├── error/           # Error types and handling
-│   ├── git/             # Git operations (via gix)
-│   ├── github/          # GitHub API integration
-│   ├── publish/         # crates.io publishing logic
-│   ├── state/           # Release state persistence
-│   ├── version/         # Version bumping and TOML editing
-│   └── workspace/       # Workspace analysis and graphs
-├── Cargo.toml
-└── README.md
-```
-
-### Running Tests
-
-```bash
-# All tests
-cargo test
-
-# Specific module
-cargo test --lib workspace::tests
-
-# With output
-cargo test -- --nocapture
-```
-
-### Debug Logging
-
-```bash
-RUST_LOG=debug kodegen_bundler_release release patch --dry-run
-```
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes with tests
-4. Format code: `cargo fmt`
-5. Lint: `cargo clippy -- -D warnings`
-6. Submit a pull request
-
-### Code Standards
-
-- Edition 2024 Rust
-- `#![deny(unsafe_code)]` except for audited FFI calls
-- Comprehensive error messages with recovery suggestions
-- All public APIs documented
 
 ## License
 
@@ -508,16 +325,8 @@ See [LICENSE.md](LICENSE.md) for details.
 
 Part of the [KODEGEN.ᴀɪ](https://kodegen.ai) project - blazing-fast MCP tools for AI-powered code generation.
 
-### Key Dependencies
-
-- [gix](https://github.com/Byron/gitoxide) - Pure Rust Git implementation
-- [clap](https://github.com/clap-rs/clap) - Command-line argument parsing
-- [toml_edit](https://github.com/toml-rs/toml) - Format-preserving TOML editing
-- [petgraph](https://github.com/petgraph/petgraph) - Graph algorithms for dependency ordering
-- [reqwest](https://github.com/seanmonstar/reqwest) - HTTP client for GitHub API
-
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/cyrup-ai/kodegen-bundler-release/issues)
-- **Documentation**: [docs.rs](https://docs.rs/kodegen_bundler_release)
+- **Issues**: [GitHub Issues](https://github.com/cyrup-ai/kodegen-bundler-bundle/issues)
+- **Documentation**: [docs.rs](https://docs.rs/kodegen_bundler_bundle)
 - **Website**: [kodegen.ai](https://kodegen.ai)

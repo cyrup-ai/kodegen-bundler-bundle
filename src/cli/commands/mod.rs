@@ -118,8 +118,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     let bundler = Bundler::new(settings).await?;
     let artifacts = bundler.bundle().await?;
     
-    // Step 10: Output artifact paths to stdout (one per line)
-    // This is consumed by the release workflow
+    // Step 10: Handle output
     if artifacts.is_empty() {
         runtime_config.warning_println("⚠️  No artifacts created");
         return Ok(1);
@@ -127,11 +126,67 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     
     runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifacts.len()));
     
-    for artifact in &artifacts {
-        for path in &artifact.paths {
-            // Print to stdout for consumption by release workflow
-            println!("{}", path.display());
-            runtime_config.verbose_println(&format!("   Artifact: {}", path.display()));
+    // Step 11: Handle --output-binary if specified
+    if let Some(output_path) = &args.output_binary {
+        // Get the main artifact path (first path of first artifact)
+        let source_path = artifacts[0].paths.first()
+            .ok_or_else(|| BundlerError::Cli(CliError::ExecutionFailed {
+                command: "get artifact path".to_string(),
+                reason: "No artifact paths returned from bundler".to_string(),
+            }))?;
+        
+        runtime_config.verbose_println(&format!(
+            "   Moving artifact:\n      from: {}\n      to:   {}",
+            source_path.display(),
+            output_path.display()
+        ));
+        
+        // Bundler responsibility: create parent directories
+        if let Some(parent) = output_path.parent() {
+            tokio::fs::create_dir_all(parent).await
+                .map_err(|e| BundlerError::Cli(CliError::ExecutionFailed {
+                    command: "create output directory".to_string(),
+                    reason: format!("Failed to create {}: {}", parent.display(), e),
+                }))?;
+        }
+        
+        // Move artifact to specified output path (simple rename, same filesystem)
+        tokio::fs::rename(source_path, output_path).await
+            .map_err(|e| BundlerError::Cli(CliError::ExecutionFailed {
+                command: "move artifact".to_string(),
+                reason: format!(
+                    "Failed to move artifact from {} to {}: {}",
+                    source_path.display(),
+                    output_path.display(),
+                    e
+                ),
+            }))?;
+        
+        // Contract enforcement: verify file exists at destination
+        if !output_path.exists() {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
+                command: "verify output".to_string(),
+                reason: format!(
+                    "Move reported success but file does not exist at {}",
+                    output_path.display()
+                ),
+            }));
+        }
+        
+        runtime_config.success_println(&format!(
+            "✓ Artifact at: {}",
+            output_path.display()
+        ));
+        
+        // Output the final path to stdout (for diagnostics)
+        println!("{}", output_path.display());
+    } else {
+        // Legacy behavior: output artifact paths in their original locations
+        for artifact in &artifacts {
+            for path in &artifact.paths {
+                println!("{}", path.display());
+                runtime_config.verbose_println(&format!("   Artifact: {}", path.display()));
+            }
         }
     }
     
