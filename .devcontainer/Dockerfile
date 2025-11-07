@@ -83,10 +83,9 @@ FROM rust-toolchain AS bundler-builder
 
 # Install bundler from GitHub release
 # This works even when building from temp clones without bundler source
-ARG BUNDLER_VERSION=main
 RUN cargo install --git https://github.com/cyrup-ai/kodegen-bundler-bundle \
-    --branch ${BUNDLER_VERSION} \
-    kodegen_bundler_bundle
+    --branch main \
+    --bin kodegen_bundler_bundle
 
 # Verify bundler installation
 RUN kodegen_bundler_bundle --version || kodegen_bundler_bundle --help
