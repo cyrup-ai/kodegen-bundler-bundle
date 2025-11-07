@@ -5,6 +5,9 @@
 // Submodules
 mod devcontainer;
 
+// Re-export public API
+pub use devcontainer::copy_embedded_devcontainer;
+
 use crate::bundler::{BundleBinary, Bundler, PackageSettings, PackageType, SettingsBuilder};
 use crate::cli::args::{Args, RuntimeConfig};
 use crate::cli::docker::bundler::ContainerBundler;
