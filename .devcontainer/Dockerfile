@@ -81,9 +81,10 @@ RUN rustc --version && cargo --version
 # ============================================================================
 FROM rust-toolchain AS bundler-builder
 
-# Install bundler from GitHub release
-# This works even when building from temp clones without bundler source
-RUN cargo install --git https://github.com/cyrup-ai/kodegen-bundler-bundle \
+# Install bundler from GitHub main branch (always latest)
+# Cache bust 2025-01-07: Removed --version CLI parameter
+RUN cargo install \
+    --git https://github.com/cyrup-ai/kodegen-bundler-bundle \
     --branch main \
     --bin kodegen_bundler_bundle \
     kodegen_bundler_bundle
