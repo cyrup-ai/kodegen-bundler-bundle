@@ -93,16 +93,41 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     let target_dir = args.repo_path.join("target").join("release");
     let binary_path = target_dir.join(&args.binary_name);
 
+    runtime_config.verbose_println(&format!("   Expected binary path: {}", binary_path.display()));
+
     if !binary_path.exists() {
+        // List what files ARE in the target directory for debugging
+        let mut available_files = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&target_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_file() {
+                    available_files.push(entry.file_name().to_string_lossy().to_string());
+                }
+            }
+        }
+
         return Err(BundlerError::Cli(CliError::InvalidArguments {
             reason: format!(
-                "Binary not found at {}. Did you forget to build?",
-                binary_path.display()
+                "Binary not found at {}\n\
+                 \n\
+                 Expected: {}\n\
+                 Available files in {}: {:?}\n\
+                 \n\
+                 Did cargo build create the binary with a different name?",
+                binary_path.display(),
+                args.binary_name,
+                target_dir.display(),
+                available_files
             ),
         }));
     }
 
-    runtime_config.verbose_println(&format!("   Binary path: {}", binary_path.display()));
+    let binary_metadata = std::fs::metadata(&binary_path)?;
+    runtime_config.verbose_println(&format!(
+        "   ✓ Binary found: {} ({} bytes)",
+        binary_path.display(),
+        binary_metadata.len()
+    ));
 
     // Step 6: Create PackageSettings from metadata
     let package_settings = PackageSettings {
