@@ -63,6 +63,7 @@ num_cpus = "1"
 
 # Path utilities
 path-absolutize = "3"
+tempfile = "3"           # Temporary directories
 
 # Code signing
 kodegen_bundler_sign = "0.1.1"
