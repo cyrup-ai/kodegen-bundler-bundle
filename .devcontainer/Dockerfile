@@ -69,7 +69,7 @@ ENV PATH=$HOME/.cargo/bin:$PATH
 FROM user-setup AS rust-toolchain
 
 # Install Rust nightly (matching rust-toolchain.toml)
-RUN rustup default nightly-2024-10-20 \
+RUN rustup default nightly \
     && rustup component add rustfmt clippy
 
 # Verify Rust installation
