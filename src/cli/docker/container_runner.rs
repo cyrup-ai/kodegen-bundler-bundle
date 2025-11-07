@@ -117,6 +117,12 @@ impl ContainerRunner {
             "/workspace".to_string(),
         ];
 
+        // Override CARGO_HOME to prevent Docker's --user from breaking it
+        // Docker resets HOME when --user is specified, but we need cargo to use
+        // the world-writable /home/builder/.cargo created during image build
+        docker_args.push("-e".to_string());
+        docker_args.push("CARGO_HOME=/home/builder/.cargo".to_string());
+
         // User mapping for file ownership (Unix only)
         #[cfg(unix)]
         {
