@@ -1,7 +1,6 @@
 //! Docker image management and orchestration.
 
 use crate::error::{BundlerError, CliError};
-use std::path::Path;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -73,12 +72,12 @@ async fn check_docker_responsive() -> Result<(), BundlerError> {
 
 /// Ensures the builder Docker image is built and up-to-date.
 ///
-/// Checks if the image exists and whether it's stale (Dockerfile modified after image creation).
-/// Automatically rebuilds if Dockerfile is newer than image.
+/// Uses the bundler's embedded Dockerfile (no external dependencies required).
+/// Checks if the image exists and whether it's stale.
+/// Automatically rebuilds if image is outdated (>7 days old).
 ///
 /// # Arguments
 ///
-/// * `workspace_path` - Path to workspace containing .devcontainer/Dockerfile
 /// * `force_rebuild` - If true, rebuild image unconditionally
 /// * `runtime_config` - Runtime configuration for output
 ///
@@ -87,43 +86,30 @@ async fn check_docker_responsive() -> Result<(), BundlerError> {
 /// * `Ok(())` - Image is ready and up-to-date
 /// * `Err` - Failed to build or check image
 pub async fn ensure_image_built(
-    workspace_path: &Path,
     force_rebuild: bool,
     runtime_config: &crate::cli::RuntimeConfig,
 ) -> Result<(), BundlerError> {
     // Fast pre-flight check to ensure Docker daemon is responsive
     check_docker_responsive().await?;
 
-    let dockerfile_path = workspace_path.join(".devcontainer/Dockerfile");
+    // Create temporary directory for Docker build context
+    let temp_dir = tempfile::TempDir::new().map_err(|e| {
+        BundlerError::Cli(CliError::ExecutionFailed {
+            command: "create_temp_dir".to_string(),
+            reason: format!("Failed to create temporary directory for Docker build: {}", e),
+        })
+    })?;
 
-    if !dockerfile_path.exists() {
-        return Err(BundlerError::Cli(CliError::ExecutionFailed {
-            command: "check_dockerfile".to_string(),
-            reason: format!(
-                "Dockerfile not found at: {}\n\
-                 \n\
-                 To use Docker for cross-platform builds, you need a Dockerfile.\n\
-                 The expected location is:\n\
-                 {}\n\
-                 \n\
-                 This Dockerfile provides a Linux container with:\n\
-                 • Rust toolchain (matching rust-toolchain.toml)\n\
-                 • Wine + .NET 4.0 (for building Windows .msi installers)\n\
-                 • NSIS (for building .exe installers)\n\
-                 • Tools for .deb, .rpm, and AppImage creation\n\
-                 \n\
-                 See example and setup guide:\n\
-                 https://github.com/cyrup/kodegen/tree/main/.devcontainer",
-                dockerfile_path.display(),
-                dockerfile_path.display()
-            ),
-        }));
-    }
+    // Extract embedded .devcontainer resources to temp directory
+    runtime_config.verbose_println("Extracting embedded Dockerfile...");
+    crate::cli::commands::copy_embedded_devcontainer(temp_dir.path())?;
+
+    let dockerfile_path = temp_dir.path().join(".devcontainer/Dockerfile");
 
     // Force rebuild if requested
     if force_rebuild {
         runtime_config.progress("Force rebuilding Docker image (--rebuild-image)...");
-        return build_docker_image(workspace_path, runtime_config).await;
+        return build_docker_image(temp_dir.path(), runtime_config).await;
     }
 
     // Check if image exists
@@ -180,7 +166,7 @@ pub async fn ensure_image_built(
                         "Docker image is {} days old - rebuilding to get base image updates",
                         age_days
                     ));
-                    return build_docker_image(workspace_path, runtime_config).await;
+                    return build_docker_image(temp_dir.path(), runtime_config).await;
                 }
 
                 runtime_config.verbose_println("Docker image is up-to-date");
@@ -192,7 +178,7 @@ pub async fn ensure_image_built(
                     BUILDER_IMAGE_NAME
                 ));
                 runtime_config.progress("Rebuilding Docker image...");
-                return build_docker_image(workspace_path, runtime_config).await;
+                return build_docker_image(temp_dir.path(), runtime_config).await;
             }
             Err(e) => {
                 // If we can't determine staleness, be conservative and rebuild
@@ -200,7 +186,7 @@ pub async fn ensure_image_built(
                     "Could not verify image freshness: {}\nRebuilding to be safe...",
                     e
                 ));
-                return build_docker_image(workspace_path, runtime_config).await;
+                return build_docker_image(temp_dir.path(), runtime_config).await;
             }
         }
     }
@@ -210,5 +196,5 @@ pub async fn ensure_image_built(
         "Building {} Docker image (this may take a few minutes)...",
         BUILDER_IMAGE_NAME
     ));
-    build_docker_image(workspace_path, runtime_config).await
+    build_docker_image(temp_dir.path(), runtime_config).await
 }

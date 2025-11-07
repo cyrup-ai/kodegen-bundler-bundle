@@ -9,11 +9,12 @@ use tokio::process::Command;
 
 use super::config::{BUILDER_IMAGE_NAME, DOCKER_BUILD_TIMEOUT};
 
-/// Builds the Docker image from Dockerfile.
+/// Builds the Docker image from embedded Dockerfile.
 ///
 /// # Arguments
 ///
-/// * `workspace_path` - Path to workspace root
+/// * `docker_build_context` - Path to directory containing .devcontainer/Dockerfile
+///   (typically a temp directory where embedded Dockerfile was extracted)
 /// * `runtime_config` - Runtime configuration for output
 ///
 /// # Returns
@@ -21,10 +22,10 @@ use super::config::{BUILDER_IMAGE_NAME, DOCKER_BUILD_TIMEOUT};
 /// * `Ok(())` - Image built successfully
 /// * `Err` - Build failed
 pub async fn build_docker_image(
-    workspace_path: &Path,
+    docker_build_context: &Path,
     runtime_config: &crate::cli::RuntimeConfig,
 ) -> Result<(), BundlerError> {
-    let dockerfile_dir = workspace_path.join(".devcontainer");
+    let dockerfile_dir = docker_build_context.join(".devcontainer");
 
     runtime_config.progress(&format!("Building Docker image: {}", BUILDER_IMAGE_NAME));
 

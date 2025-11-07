@@ -144,7 +144,8 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         runtime_config.verbose_println("   Using Docker container for bundling...");
 
         // Ensure Docker image is built before attempting to use it
-        ensure_image_built(&args.repo_path, false, &runtime_config).await?;
+        // (uses bundler's embedded Dockerfile, no external dependencies)
+        ensure_image_built(false, &runtime_config).await?;
 
         let limits = ContainerLimits::from_args(&args)?;
         let container_bundler = ContainerBundler::with_limits(args.repo_path.clone(), limits);
