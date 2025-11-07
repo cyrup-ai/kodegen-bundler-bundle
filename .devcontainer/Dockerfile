@@ -68,9 +68,10 @@ ENV PATH=$HOME/.cargo/bin:$PATH
 # ============================================================================
 FROM user-setup AS rust-toolchain
 
-# Install Rust nightly (matching rust-toolchain.toml)
+# Install Rust nightly with common targets and components
 RUN rustup default nightly \
-    && rustup component add rustfmt clippy
+    && rustup component add rustfmt clippy \
+    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
