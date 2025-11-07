@@ -67,7 +67,6 @@ impl ContainerRunner {
     /// * `temp_target_dir` - Temporary target directory path
     /// * `platform` - Platform to bundle
     /// * `binary_name` - Name of binary
-    /// * `version` - Version string
     ///
     /// # Returns
     ///
@@ -78,7 +77,6 @@ impl ContainerRunner {
         temp_target_dir: &Path,
         platform: PackageType,
         binary_name: &str,
-        version: &str,
     ) -> Vec<String> {
         let platform_str = super::platform::platform_type_to_string(platform);
 
@@ -137,8 +135,6 @@ impl ContainerRunner {
         docker_args.push(platform_str.to_string());
         docker_args.push("--binary-name".to_string());
         docker_args.push(binary_name.to_string());
-        docker_args.push("--version".to_string());
-        docker_args.push(version.to_string());
 
         docker_args
     }

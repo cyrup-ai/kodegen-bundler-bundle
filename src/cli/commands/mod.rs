@@ -40,7 +40,6 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     ));
     runtime_config.verbose_println(&format!("   Repository: {}", args.repo_path.display()));
     runtime_config.verbose_println(&format!("   Binary: {}", args.binary_name));
-    runtime_config.verbose_println(&format!("   Version: {}", args.version));
 
     // Step 2: Load Cargo.toml metadata
     let cargo_toml = args.repo_path.join("Cargo.toml");
@@ -108,7 +107,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     // Step 6: Create PackageSettings from metadata
     let package_settings = PackageSettings {
         product_name: manifest.metadata.name.clone(),
-        version: args.version.clone(),
+        version: manifest.metadata.version.clone(),
         description: manifest.metadata.description.clone(),
         homepage: manifest.metadata.homepage.clone(),
         authors: Some(manifest.metadata.authors.clone()),
@@ -150,7 +149,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         let limits = ContainerLimits::from_args(&args)?;
         let container_bundler = ContainerBundler::with_limits(args.repo_path.clone(), limits);
         container_bundler
-            .bundle_platform(package_type, &args.binary_name, &args.version, &runtime_config)
+            .bundle_platform(package_type, &args.binary_name, &runtime_config)
             .await?
     } else {
         // Native platform: use direct bundler

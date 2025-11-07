@@ -63,7 +63,6 @@ impl ContainerBundler {
         &self,
         platform: PackageType,
         binary_name: &str,
-        version: &str,
         runtime_config: &crate::cli::RuntimeConfig,
     ) -> Result<Vec<PathBuf>, BundlerError> {
         let platform_str = super::platform::platform_type_to_string(platform);
@@ -102,7 +101,6 @@ impl ContainerBundler {
             &temp_target_dir,
             platform,
             binary_name,
-            version,
         );
 
         // Run container and capture output

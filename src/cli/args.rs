@@ -11,14 +11,13 @@ use std::path::PathBuf;
 #[command(
     name = "kodegen_bundler_bundle",
     version,
-    disable_version_flag = true,
     about = "Platform package bundler for Rust binaries",
     long_about = "Creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage) for Rust binaries.
 
 Usage:
-  kodegen_bundler_bundle --repo-path /path/to/repo --platform deb --binary-name myapp --version 1.0.0
-  kodegen_bundler_bundle -r . -p dmg -b kodegen -v 0.1.3 --target x86_64-apple-darwin
-  kodegen_bundler_bundle --repo-path /workspace --platform rpm --binary-name tool --version 2.1.0 --no-build"
+  kodegen_bundler_bundle --repo-path /path/to/repo --platform deb --binary-name myapp
+  kodegen_bundler_bundle -r . -p dmg -b kodegen --target x86_64-apple-darwin
+  kodegen_bundler_bundle --repo-path /workspace --platform rpm --binary-name tool --no-build"
 )]
 pub struct Args {
     /// Path to repository root
@@ -33,10 +32,6 @@ pub struct Args {
     #[arg(short, long, value_name = "NAME")]
     pub binary_name: String,
 
-    /// Package version
-    #[arg(short, long, value_name = "VERSION")]
-    pub version: String,
-
     /// Output directory for artifacts
     #[arg(long, value_name = "PATH")]
     pub output_dir: Option<PathBuf>,
@@ -50,7 +45,7 @@ pub struct Args {
     pub no_build: bool,
 
     /// Enable verbose output
-    #[arg(short = 'V', long)]
+    #[arg(long)]
     pub verbose: bool,
 
     /// Optional output path for the created artifact
@@ -124,11 +119,6 @@ impl Args {
         // Validate binary name is not empty
         if self.binary_name.is_empty() {
             return Err("Binary name cannot be empty".to_string());
-        }
-
-        // Validate version is not empty
-        if self.version.is_empty() {
-            return Err("Version cannot be empty".to_string());
         }
 
         // Validate output directory if provided
