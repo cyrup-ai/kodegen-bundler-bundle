@@ -59,6 +59,7 @@ RUN groupadd --gid $USER_GID builder \
 # Switch to build user
 USER builder
 ENV HOME=/home/builder
+ENV CARGO_HOME=$HOME/.cargo
 ENV PATH=$HOME/.cargo/bin:$PATH
 
 # ============================================================================
