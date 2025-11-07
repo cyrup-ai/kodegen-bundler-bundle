@@ -117,11 +117,11 @@ impl ContainerRunner {
             "/workspace".to_string(),
         ];
 
-        // Override CARGO_HOME to prevent Docker's --user from breaking it
-        // Docker resets HOME when --user is specified, but we need cargo to use
-        // the world-writable /home/builder/.cargo created during image build
+        // Override CARGO_HOME to use /tmp for multi-user access
+        // /tmp has sticky bit (1777) allowing any UID to create files
+        // This avoids file ownership conflicts when --user doesn't match builder UID
         docker_args.push("-e".to_string());
-        docker_args.push("CARGO_HOME=/home/builder/.cargo".to_string());
+        docker_args.push("CARGO_HOME=/tmp/cargo".to_string());
 
         // User mapping for file ownership (Unix only)
         #[cfg(unix)]
