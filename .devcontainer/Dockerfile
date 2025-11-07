@@ -107,7 +107,7 @@ WORKDIR /workspace
 RUN rustc --version && \
     cargo --version && \
     makensis -VERSION && \
-    kodegen_bundler_bundle --version
+    kodegen_bundler_bundle --help
 
 # Build instructions:
 # - Stage testing: docker build --target=<stage> -t kodegen-test-<stage> .
