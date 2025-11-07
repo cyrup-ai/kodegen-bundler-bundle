@@ -35,7 +35,7 @@ mod artifacts;
 pub mod bundler;
 mod container_runner;
 mod guard;
-mod image;
+pub mod image;
 pub mod limits;
 mod oom_detector;
 mod platform;

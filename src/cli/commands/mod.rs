@@ -8,6 +8,7 @@ mod devcontainer;
 use crate::bundler::{BundleBinary, Bundler, PackageSettings, PackageType, SettingsBuilder};
 use crate::cli::args::{Args, RuntimeConfig};
 use crate::cli::docker::bundler::ContainerBundler;
+use crate::cli::docker::image::ensure_image_built;
 use crate::cli::docker::limits::ContainerLimits;
 use crate::error::{BundlerError, CliError, Result};
 use crate::metadata::load_manifest;
@@ -138,6 +139,9 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             required_os_for_package(&package_type)
         ));
         runtime_config.verbose_println("   Using Docker container for bundling...");
+
+        // Ensure Docker image is built before attempting to use it
+        ensure_image_built(&args.repo_path, false, &runtime_config).await?;
 
         let limits = ContainerLimits::from_args(&args)?;
         let container_bundler = ContainerBundler::with_limits(args.repo_path.clone(), limits);
