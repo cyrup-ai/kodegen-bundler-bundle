@@ -41,5 +41,3 @@ mod oom_detector;
 mod platform;
 
 // Re-export public API
-pub use bundler::ContainerBundler;
-pub use limits::ContainerLimits;

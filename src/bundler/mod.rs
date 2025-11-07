@@ -63,9 +63,8 @@ pub use builder::Bundler;
 pub use error::{Error, Result};
 pub use platform::PackageType;
 pub use settings::{
-    AppImageSettings, Arch, BundleBinary, BundleSettings, DebianSettings, DmgSettings,
-    MacOsSettings, NSISInstallerMode, NsisCompression, NsisSettings, PackageSettings, RpmSettings,
-    Settings, SettingsBuilder, WindowsSettings, WixSettings,
+    BundleBinary, BundleSettings, PackageSettings,
+    Settings, SettingsBuilder,
 };
 
 /// A bundled artifact result containing metadata about created installers.

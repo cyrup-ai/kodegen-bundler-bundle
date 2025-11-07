@@ -13,7 +13,5 @@ mod staleness;
 mod utils;
 
 // Re-export public API
-pub use availability::check_docker_available;
-pub use builder::build_docker_image;
-pub use config::{BUILDER_IMAGE_NAME, DOCKER_BUILD_TIMEOUT, DOCKER_INFO_TIMEOUT};
+pub use config::BUILDER_IMAGE_NAME;
 pub use manager::ensure_image_built;

@@ -13,6 +13,7 @@ use super::oom_detector::OomDetector;
 use super::platform::platform_emoji;
 use crate::bundler::PackageType;
 use crate::error::BundlerError;
+use std::path::Path;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -192,7 +193,7 @@ impl ContainerBundler {
     /// Prepares temporary target directory for isolated build.
     fn prepare_temp_directory(
         &self,
-        workspace_path: &PathBuf,
+        workspace_path: &Path,
         build_uuid: &Uuid,
     ) -> Result<PathBuf, BundlerError> {
         use crate::error::CliError;

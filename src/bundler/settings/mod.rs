@@ -23,4 +23,4 @@ pub use core::Settings;
 pub use linux::{AppImageSettings, DebianSettings, RpmSettings};
 pub use macos::{DmgSettings, MacOsSettings};
 pub use package::PackageSettings;
-pub use windows::{NSISInstallerMode, NsisCompression, NsisSettings, WindowsSettings, WixSettings};
+pub use windows::WindowsSettings;

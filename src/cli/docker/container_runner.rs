@@ -2,7 +2,7 @@
 
 use crate::bundler::PackageType;
 use crate::error::{BundlerError, CliError};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -75,7 +75,7 @@ impl ContainerRunner {
     pub fn build_docker_args(
         &self,
         container_name: &str,
-        temp_target_dir: &PathBuf,
+        temp_target_dir: &Path,
         platform: PackageType,
         binary_name: &str,
         version: &str,

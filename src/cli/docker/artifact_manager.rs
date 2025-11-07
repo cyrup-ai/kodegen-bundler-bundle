@@ -3,7 +3,7 @@
 use super::artifacts::verify_artifacts;
 use crate::bundler::PackageType;
 use crate::error::{BundlerError, CliError};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Artifact manager for handling bundle outputs.
 pub struct ArtifactManager {
@@ -33,7 +33,7 @@ impl ArtifactManager {
     /// Vector of artifact paths
     pub async fn discover_artifacts(
         &self,
-        temp_target_dir: &PathBuf,
+        temp_target_dir: &Path,
         platform: PackageType,
         runtime_config: &crate::cli::RuntimeConfig,
     ) -> Result<Vec<PathBuf>, BundlerError> {
@@ -129,13 +129,11 @@ impl ArtifactManager {
                             eprintln!("  ✓ Artifact: {}", path.display());
                         }
                         artifacts.push(path);
-                    } else {
-                        if verbose {
-                            eprintln!(
-                                "  Skipping non-artifact: {} (wrong extension)",
-                                path.display()
-                            );
-                        }
+                    } else if verbose {
+                        eprintln!(
+                            "  Skipping non-artifact: {} (wrong extension)",
+                            path.display()
+                        );
                     }
                 }
 
@@ -162,13 +160,13 @@ impl ArtifactManager {
     /// Formats error when no artifacts are found.
     async fn format_no_artifacts_error(
         &self,
-        bundle_dir: &PathBuf,
+        bundle_dir: &Path,
         platform: PackageType,
     ) -> Result<BundlerError, BundlerError> {
         let platform_str = super::platform::platform_type_to_string(platform);
 
         let dir_contents = {
-            let bundle_dir = bundle_dir.clone();
+            let bundle_dir = bundle_dir.to_path_buf();
             tokio::task::spawn_blocking(move || {
                 match std::fs::read_dir(&bundle_dir) {
                     Ok(entries) => {
