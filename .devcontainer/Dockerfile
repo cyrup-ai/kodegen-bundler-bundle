@@ -91,6 +91,10 @@ RUN cargo install \
     --bin kodegen_bundler_bundle \
     kodegen_bundler_bundle
 
+# Make cargo cache writable by any user (for --user runtime override)
+# Container runs with --user ${host_uid}:${host_gid}, which may differ from builder user
+RUN chmod -R 777 $HOME/.cargo
+
 # Verify bundler installation
 RUN kodegen_bundler_bundle --version || kodegen_bundler_bundle --help
 
