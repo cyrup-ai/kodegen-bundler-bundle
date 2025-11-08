@@ -134,7 +134,9 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         .to_str()
         .context("AppDir path contains invalid UTF-8")?;
 
+    // Use --appimage-extract-and-run so linuxdeploy can run in Docker without FUSE
     let status = tokio::process::Command::new(&linuxdeploy)
+        .arg("--appimage-extract-and-run")
         .env("OUTPUT", &appimage_path)
         .env("ARCH", arch)
         .args(["--appdir", app_dir_str, "--output", "appimage"])
