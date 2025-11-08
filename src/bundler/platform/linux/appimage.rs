@@ -196,31 +196,25 @@ async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
         }
     }
 
-    // Extract AppImage (--appimage-extract works without FUSE)
-    log::info!("Extracting linuxdeploy for {}...", arch);
+    // Extract AppImage using unsquashfs (bypasses AppImage runtime completely)
+    // This avoids FUSE dependency in Docker containers
+    log::info!("Extracting linuxdeploy for {} using unsquashfs...", arch);
 
-    let extract_status = tokio::process::Command::new(&appimage_path)
-        .arg("--appimage-extract")
+    let extract_status = tokio::process::Command::new("unsquashfs")
+        .arg("-f")  // Force overwrite if exists
+        .arg("-d")  // Destination directory
+        .arg(&extracted_dir)
+        .arg(&appimage_path)
         .current_dir(tools_dir)
         .status()
         .await
         .map_err(|e| {
-            crate::bundler::Error::GenericError(format!("Failed to extract linuxdeploy: {}", e))
+            crate::bundler::Error::GenericError(format!("Failed to run unsquashfs: {}", e))
         })?;
 
     if !extract_status.success() {
-        bail!("linuxdeploy extraction failed with exit code: {:?}", extract_status.code());
+        bail!("unsquashfs extraction failed with exit code: {:?}", extract_status.code());
     }
-
-    // Rename squashfs-root to permanent versioned directory
-    let squashfs_root = tools_dir.join("squashfs-root");
-    if !squashfs_root.exists() {
-        bail!("linuxdeploy extraction did not create squashfs-root directory");
-    }
-
-    tokio::fs::rename(&squashfs_root, &extracted_dir)
-        .await
-        .fs_context("renaming squashfs-root", &extracted_dir)?;
 
     if !extracted_binary.exists() {
         bail!("AppRun not found in extracted linuxdeploy");
