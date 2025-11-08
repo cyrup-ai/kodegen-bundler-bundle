@@ -69,10 +69,17 @@ ENV PATH=$HOME/.cargo/bin:$PATH
 # ============================================================================
 FROM user-setup AS rust-toolchain
 
+# Switch to root to make Rust toolchain accessible to all UIDs
+USER root
+
 # Install Rust nightly with common targets and components
 RUN rustup default nightly \
     && rustup component add rustfmt clippy \
-    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin
+    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin \
+    && chmod -R a+rX /usr/local/rustup /usr/local/cargo
+
+# Switch back to builder user
+USER builder
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
