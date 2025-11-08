@@ -53,7 +53,7 @@
 mod builder;
 mod error;
 mod patch;
-pub(crate) mod platform;
+pub mod platform;
 mod resources;
 mod settings;
 mod utils;
