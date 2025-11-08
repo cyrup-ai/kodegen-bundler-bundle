@@ -134,9 +134,8 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         .to_str()
         .context("AppDir path contains invalid UTF-8")?;
 
-    // Set APPIMAGE_EXTRACT_AND_RUN=1 so linuxdeploy can run in Docker without FUSE
+    // Execute extracted linuxdeploy binary (no FUSE required)
     let status = tokio::process::Command::new(&linuxdeploy)
-        .env("APPIMAGE_EXTRACT_AND_RUN", "1")
         .env("OUTPUT", &appimage_path)
         .env("ARCH", arch)
         .args(["--appdir", app_dir_str, "--output", "appimage"])
@@ -162,37 +161,74 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     Ok(vec![appimage_path])
 }
 
-/// Download linuxdeploy tool.
+/// Download and extract linuxdeploy tool.
 ///
-/// Downloads the linuxdeploy AppImage from GitHub and caches it locally.
-/// Returns early if the tool is already cached.
+/// Downloads the linuxdeploy AppImage from GitHub and extracts it to avoid FUSE dependency.
+/// Returns path to the extracted AppRun binary.
 async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
-    let tool_name = format!("linuxdeploy-{}.AppImage", arch);
-    let tool_path = tools_dir.join(&tool_name);
+    let appimage_name = format!("linuxdeploy-{}.AppImage", arch);
+    let appimage_path = tools_dir.join(&appimage_name);
+    let extracted_dir = tools_dir.join(format!("linuxdeploy-{}-extracted", arch));
+    let extracted_binary = extracted_dir.join("AppRun");
 
-    // Return early if already downloaded
-    if tool_path.exists() {
-        log::debug!("linuxdeploy already cached at {:?}", tool_path);
-        return Ok(tool_path);
+    // Return early if already extracted
+    if extracted_binary.exists() {
+        log::debug!("linuxdeploy already extracted at {:?}", extracted_binary);
+        return Ok(extracted_binary);
     }
 
-    log::info!("Downloading linuxdeploy for {}...", arch);
+    // Download AppImage if not already cached
+    if !appimage_path.exists() {
+        log::info!("Downloading linuxdeploy for {}...", arch);
 
-    let url = format!("{}/{}", LINUXDEPLOY_BASE_URL, tool_name);
-    let data = http::download(&url).await?;
+        let url = format!("{}/{}", LINUXDEPLOY_BASE_URL, appimage_name);
+        let data = http::download(&url).await?;
 
-    tokio::fs::write(&tool_path, data)
+        tokio::fs::write(&appimage_path, data)
+            .await
+            .fs_context("writing linuxdeploy AppImage", &appimage_path)?;
+
+        // Make executable on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            tokio::fs::set_permissions(&appimage_path, std::fs::Permissions::from_mode(0o755)).await?;
+        }
+    }
+
+    // Extract AppImage (--appimage-extract works without FUSE)
+    log::info!("Extracting linuxdeploy for {}...", arch);
+
+    let extract_status = tokio::process::Command::new(&appimage_path)
+        .arg("--appimage-extract")
+        .current_dir(tools_dir)
+        .status()
         .await
-        .fs_context("writing linuxdeploy tool", &tool_path)?;
+        .map_err(|e| {
+            crate::bundler::Error::GenericError(format!("Failed to extract linuxdeploy: {}", e))
+        })?;
 
-    // Make executable on Unix
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        tokio::fs::set_permissions(&tool_path, std::fs::Permissions::from_mode(0o755)).await?;
+    if !extract_status.success() {
+        bail!("linuxdeploy extraction failed with exit code: {:?}", extract_status.code());
     }
 
-    Ok(tool_path)
+    // Rename squashfs-root to permanent versioned directory
+    let squashfs_root = tools_dir.join("squashfs-root");
+    if !squashfs_root.exists() {
+        bail!("linuxdeploy extraction did not create squashfs-root directory");
+    }
+
+    tokio::fs::rename(&squashfs_root, &extracted_dir)
+        .await
+        .fs_context("renaming squashfs-root", &extracted_dir)?;
+
+    if !extracted_binary.exists() {
+        bail!("AppRun not found in extracted linuxdeploy");
+    }
+
+    log::info!("✓ linuxdeploy extracted to {:?}", extracted_dir);
+
+    Ok(extracted_binary)
 }
 
 /// Create .desktop file for the AppImage.
