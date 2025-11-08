@@ -90,7 +90,18 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     runtime_config.verbose_println(&format!("   Package type: {:?}", package_type));
 
     // Step 5: Determine binary path
-    let target_dir = args.repo_path.join("target").join("release");
+    // For universal binaries, use target/universal/release/
+    // For specific targets, use target/{target}/release/ (e.g., target/x86_64-apple-darwin/release/)
+    // For default builds, use target/release/
+    let target_dir = if let Some(ref target) = args.target {
+        if target == "universal" {
+            args.repo_path.join("target").join("universal").join("release")
+        } else {
+            args.repo_path.join("target").join(target).join("release")
+        }
+    } else {
+        args.repo_path.join("target").join("release")
+    };
     let binary_path = target_dir.join(&args.binary_name);
 
     runtime_config.verbose_println(&format!("   Expected binary path: {}", binary_path.display()));
@@ -143,13 +154,19 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     let bundle_binary = BundleBinary::new(args.binary_name.clone(), true);
 
     // Step 8: Build Settings via SettingsBuilder
-    let settings = SettingsBuilder::new()
+    let mut builder = SettingsBuilder::new()
         .project_out_directory(&target_dir)
         .package_settings(package_settings)
         .bundle_settings(manifest.bundle_settings)
         .binaries(vec![bundle_binary])
-        .package_types(vec![package_type])
-        .build()?;
+        .package_types(vec![package_type]);
+
+    // Add target if specified (for cross-compilation or universal binaries)
+    if let Some(ref target) = args.target {
+        builder = builder.target(target.clone());
+    }
+
+    let settings = builder.build()?;
 
     runtime_config.section(&format!(
         "📦 Creating {} package...",

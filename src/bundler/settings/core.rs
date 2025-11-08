@@ -86,8 +86,11 @@ impl Settings {
     ///
     /// Automatically determines the target architecture based on the Rust
     /// target triple (e.g., "x86_64-unknown-linux-gnu" → `Arch::X86_64`).
+    /// Special case: "universal" → `Arch::Universal` for macOS fat binaries.
     pub fn binary_arch(&self) -> Arch {
-        if self.target.starts_with("x86_64") {
+        if self.target == "universal" {
+            Arch::Universal
+        } else if self.target.starts_with("x86_64") {
             Arch::X86_64
         } else if self.target.starts_with('i') {
             Arch::X86
