@@ -140,8 +140,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     };
 
     // Step 7: Create BundleBinary
-    let bundle_binary = BundleBinary::new(binary_path.to_string_lossy().to_string(), true)
-        .set_src_path(Some(binary_path.to_string_lossy().to_string()));
+    let bundle_binary = BundleBinary::new(args.binary_name.clone(), true);
 
     // Step 8: Build Settings via SettingsBuilder
     let settings = SettingsBuilder::new()
