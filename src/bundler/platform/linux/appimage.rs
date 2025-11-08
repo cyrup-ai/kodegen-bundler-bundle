@@ -135,6 +135,7 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         .context("AppDir path contains invalid UTF-8")?;
 
     let status = tokio::process::Command::new(&linuxdeploy)
+        .arg("--appimage-extract-and-run")
         .env("OUTPUT", &appimage_path)
         .env("ARCH", arch)
         .args(["--appdir", app_dir_str, "--output", "appimage"])
