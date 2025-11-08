@@ -134,7 +134,6 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
         .to_str()
         .context("AppDir path contains invalid UTF-8")?;
 
-    // Use extracted linuxdeploy binary (no --appimage-extract-and-run needed since it's already extracted)
     let status = tokio::process::Command::new(&linuxdeploy)
         .env("OUTPUT", &appimage_path)
         .env("ARCH", arch)
@@ -161,93 +160,37 @@ pub async fn bundle_project(settings: &Settings) -> Result<Vec<PathBuf>> {
     Ok(vec![appimage_path])
 }
 
-/// Download and extract linuxdeploy tool.
+/// Download linuxdeploy tool.
 ///
-/// Downloads the linuxdeploy AppImage from GitHub, extracts it (since Docker doesn't have FUSE),
-/// and returns the path to the extracted AppRun binary.
+/// Downloads the linuxdeploy AppImage from GitHub and caches it locally.
+/// Returns early if the tool is already cached.
 async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
     let tool_name = format!("linuxdeploy-{}.AppImage", arch);
     let tool_path = tools_dir.join(&tool_name);
-    let extracted_dir = tools_dir.join(format!("linuxdeploy-{}-extracted", arch));
-    let extracted_apprun = extracted_dir.join("AppRun");
 
-    // Return early if already extracted
-    if extracted_apprun.exists() {
-        log::debug!("linuxdeploy already extracted at {:?}", extracted_apprun);
-        return Ok(extracted_apprun);
+    // Return early if already downloaded
+    if tool_path.exists() {
+        log::debug!("linuxdeploy already cached at {:?}", tool_path);
+        return Ok(tool_path);
     }
 
-    // Download if not already cached
-    if !tool_path.exists() {
-        log::info!("Downloading linuxdeploy for {}...", arch);
+    log::info!("Downloading linuxdeploy for {}...", arch);
 
-        let url = format!("{}/{}", LINUXDEPLOY_BASE_URL, tool_name);
-        let data = http::download(&url).await?;
+    let url = format!("{}/{}", LINUXDEPLOY_BASE_URL, tool_name);
+    let data = http::download(&url).await?;
 
-        tokio::fs::write(&tool_path, data)
-            .await
-            .fs_context("writing linuxdeploy tool", &tool_path)?;
-
-        // Make executable on Unix
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            tokio::fs::set_permissions(&tool_path, std::fs::Permissions::from_mode(0o755)).await?;
-        }
-    }
-
-    // Extract linuxdeploy (AppImages can't self-mount in Docker without FUSE)
-    log::info!("Extracting linuxdeploy for {}...", arch);
-
-    // Create extraction directory
-    tokio::fs::create_dir_all(&extracted_dir)
+    tokio::fs::write(&tool_path, data)
         .await
-        .fs_context("creating extraction directory", &extracted_dir)?;
+        .fs_context("writing linuxdeploy tool", &tool_path)?;
 
-    // Extract: linuxdeploy.AppImage --appimage-extract
-    // This creates a squashfs-root/ directory with the extracted contents
-    let extract_status = tokio::process::Command::new(&tool_path)
-        .arg("--appimage-extract")
-        .current_dir(&extracted_dir)
-        .status()
-        .await
-        .map_err(|e| {
-            crate::bundler::Error::GenericError(format!("Failed to extract linuxdeploy: {}", e))
-        })?;
-
-    if !extract_status.success() {
-        bail!("linuxdeploy extraction failed with exit code: {:?}", extract_status.code());
-    }
-
-    // Move squashfs-root contents to extracted_dir
-    let squashfs_root = extracted_dir.join("squashfs-root");
-    if !squashfs_root.exists() {
-        bail!("linuxdeploy extraction did not create squashfs-root directory");
-    }
-
-    // Move all files from squashfs-root/ to extracted_dir/
-    let mut entries = tokio::fs::read_dir(&squashfs_root).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        let src = entry.path();
-        let dst = extracted_dir.join(entry.file_name());
-        tokio::fs::rename(&src, &dst).await?;
-    }
-
-    // Remove empty squashfs-root directory
-    tokio::fs::remove_dir(&squashfs_root).await?;
-
-    if !extracted_apprun.exists() {
-        bail!("AppRun not found after extraction");
-    }
-
-    // Make AppRun executable
+    // Make executable on Unix
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        tokio::fs::set_permissions(&extracted_apprun, std::fs::Permissions::from_mode(0o755)).await?;
+        tokio::fs::set_permissions(&tool_path, std::fs::Permissions::from_mode(0o755)).await?;
     }
 
-    Ok(extracted_apprun)
+    Ok(tool_path)
 }
 
 /// Create .desktop file for the AppImage.

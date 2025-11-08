@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y \
     # AppImage dependencies
     file \
     desktop-file-utils \
+    fuse \
+    libfuse2 \
     # General utilities
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
