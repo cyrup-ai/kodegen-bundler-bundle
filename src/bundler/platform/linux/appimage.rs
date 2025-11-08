@@ -196,63 +196,33 @@ async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
         }
     }
 
-    // Extract AppImage using unsquashfs with offset (bypasses runtime completely)
-    // AppImage structure: [ELF header][squashfs filesystem]
-    // We need to find where squashfs starts by searching for "hsqs" magic bytes
-    log::info!("Extracting linuxdeploy for {} using unsquashfs with offset calculation...", arch);
+    // Extract AppImage using built-in --appimage-extract (official method for Docker/CI)
+    // This is the recommended approach from AppImage documentation for environments without FUSE
+    log::info!("Extracting linuxdeploy for {} using --appimage-extract...", arch);
 
-    // Step 1: Find offset of squashfs filesystem by searching for "hsqs" magic bytes
-    let offset_output = tokio::process::Command::new("grep")
-        .arg("--only-matching")
-        .arg("--byte-offset")
-        .arg("--binary")
-        .arg("--text")
-        .arg("hsqs")
-        .arg(&appimage_path)
-        .env("LC_ALL", "C")  // Prevent UTF-8 encoding issues
-        .output()
-        .await
-        .map_err(|e| {
-            crate::bundler::Error::GenericError(format!("Failed to run grep for offset: {}", e))
-        })?;
-
-    if !offset_output.status.success() {
-        bail!("Failed to find squashfs magic bytes in AppImage");
-    }
-
-    // Parse offset from grep output (format: "12345:hsqs")
-    let offset_str = String::from_utf8_lossy(&offset_output.stdout);
-    let offset = offset_str
-        .lines()
-        .last()
-        .and_then(|line| line.split(':').next())
-        .and_then(|num| num.parse::<u64>().ok())
-        .ok_or_else(|| {
-            crate::bundler::Error::GenericError(format!(
-                "Failed to parse offset from grep output: {}",
-                offset_str
-            ))
-        })?;
-
-    log::info!("Found squashfs at offset: {} bytes", offset);
-
-    // Step 2: Extract using unsquashfs with calculated offset
-    let extract_status = tokio::process::Command::new("unsquashfs")
-        .arg("-o")  // Offset parameter
-        .arg(offset.to_string())
-        .arg("-d")  // Destination directory
-        .arg(&extracted_dir)
-        .arg(&appimage_path)
+    let extract_status = tokio::process::Command::new(&appimage_path)
+        .arg("--appimage-extract")
         .current_dir(tools_dir)
         .status()
         .await
         .map_err(|e| {
-            crate::bundler::Error::GenericError(format!("Failed to run unsquashfs: {}", e))
+            crate::bundler::Error::GenericError(format!("Failed to run AppImage extraction: {}", e))
         })?;
 
     if !extract_status.success() {
-        bail!("unsquashfs extraction failed with exit code: {:?}", extract_status.code());
+        bail!("AppImage extraction failed with exit code: {:?}", extract_status.code());
     }
+
+    // AppImage --appimage-extract creates squashfs-root directory
+    // Rename it to our expected directory name
+    let squashfs_root = tools_dir.join("squashfs-root");
+    if !squashfs_root.exists() {
+        bail!("AppImage extraction did not create squashfs-root directory");
+    }
+
+    tokio::fs::rename(&squashfs_root, &extracted_dir)
+        .await
+        .fs_context("renaming extracted AppImage", &extracted_dir)?;
 
     if !extracted_binary.exists() {
         bail!("AppRun not found in extracted linuxdeploy");
