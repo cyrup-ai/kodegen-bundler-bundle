@@ -224,7 +224,7 @@ async fn download_linuxdeploy(tools_dir: &Path, arch: &str) -> Result<PathBuf> {
     let offset_str = String::from_utf8_lossy(&offset_output.stdout);
     let offset = offset_str
         .lines()
-        .next()
+        .last()
         .and_then(|line| line.split(':').next())
         .and_then(|num| num.parse::<u64>().ok())
         .ok_or_else(|| {
