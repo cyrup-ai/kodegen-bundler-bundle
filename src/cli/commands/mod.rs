@@ -42,8 +42,8 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     runtime_config.verbose_println(&format!(
         "📦 Bundler starting for platform: {}",
         args.platform
-    ));
-    runtime_config.verbose_println(&format!("   Repository: {}", repo_path.display()));
+    )).expect("Failed to write to stdout");
+    runtime_config.verbose_println(&format!("   Repository: {}", repo_path.display())).expect("Failed to write to stdout");
 
     // Step 3: Load Cargo.toml metadata
     let cargo_toml = repo_path.join("Cargo.toml");
@@ -57,12 +57,12 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     runtime_config.verbose_println(&format!(
         "   Loaded manifest: {} v{}",
         manifest.metadata.name, manifest.metadata.version
-    ));
-    runtime_config.verbose_println(&format!("   Binary: {}", manifest.binary_name));
+    )).expect("Failed to write to stdout");
+    runtime_config.verbose_println(&format!("   Binary: {}", manifest.binary_name)).expect("Failed to write to stdout");
 
     // Step 3: Parse platform to determine build target
     let package_type = parse_platform_string(&args.platform)?;
-    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type));
+    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type)).expect("Failed to write to stdout");
 
     // Step 4: Determine cross-compilation target for NSIS on non-Windows
     let cross_compile_target = if package_type == PackageType::Nsis && std::env::consts::OS != "windows" {
@@ -72,7 +72,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     };
 
     // Step 5: Build binary
-    runtime_config.section("🔨 Building binary...");
+    runtime_config.section("🔨 Building binary...").expect("Failed to write to stdout");
 
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("build")
@@ -82,7 +82,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
 
     // Add cross-compilation target if needed
     if let Some(target) = cross_compile_target {
-        runtime_config.verbose_println(&format!("   Cross-compiling for {}", target));
+        runtime_config.verbose_println(&format!("   Cross-compiling for {}", target)).expect("Failed to write to stdout");
         cmd.arg("--target").arg(target);
     }
 
@@ -107,7 +107,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
                 let reader = BufReader::new(stdout);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    runtime_config.indent(&line);
+                    runtime_config.indent(&line).expect("Failed to write cargo output");
                 }
             }
         },
@@ -117,7 +117,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
                 let reader = BufReader::new(stderr);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    runtime_config.indent(&line);
+                    runtime_config.indent(&line).expect("Failed to write cargo output");
                 }
             }
         }
@@ -138,7 +138,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         }));
     }
 
-    runtime_config.verbose_println("   ✓ Build completed");
+    runtime_config.verbose_println("   ✓ Build completed").expect("Failed to write to stdout");
 
     // Step 6: Determine binary path
     let target_dir = if let Some(target) = cross_compile_target {
@@ -157,7 +157,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     };
     let binary_path = target_dir.join(&binary_name_with_ext);
 
-    runtime_config.verbose_println(&format!("   Expected binary path: {}", binary_path.display()));
+    runtime_config.verbose_println(&format!("   Expected binary path: {}", binary_path.display())).expect("Failed to write to stdout");
 
     if !binary_path.exists() {
         // List what files ARE in the target directory for debugging
@@ -191,7 +191,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         "   ✓ Binary found: {} ({} bytes)",
         binary_path.display(),
         binary_metadata.len()
-    ));
+    )).expect("Failed to write to stdout");
 
     // Step 6: Create PackageSettings from metadata
     let package_settings = PackageSettings {
@@ -218,7 +218,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     runtime_config.section(&format!(
         "📦 Creating {} package...",
         platform_display_name(&package_type)
-    ));
+    )).expect("Failed to write to stdout");
 
     // Step 9: Bundle - use Docker if cross-platform, native if same platform
     let artifact_paths = if needs_docker(&package_type) {
@@ -227,8 +227,8 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             "   Cross-platform build detected (current: {}, required: {})",
             std::env::consts::OS,
             required_os_for_package(&package_type)
-        ));
-        runtime_config.verbose_println("   Using Docker container for bundling...");
+        )).expect("Failed to write to stdout");
+        runtime_config.verbose_println("   Using Docker container for bundling...").expect("Failed to write to stdout");
 
         // Ensure Docker image is built before attempting to use it
         // (uses bundler's embedded Dockerfile, no external dependencies)
@@ -241,7 +241,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
             .await?
     } else {
         // Native platform: use direct bundler
-        runtime_config.verbose_println("   Native platform build");
+        runtime_config.verbose_println("   Native platform build").expect("Failed to write to stdout");
         let bundler = Bundler::new(settings).await?;
         let artifacts = bundler.bundle().await?;
 
@@ -251,11 +251,11 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
 
     // Step 10: Handle output
     if artifact_paths.is_empty() {
-        runtime_config.warning_println("⚠️  No artifacts created");
+        runtime_config.warning_println("⚠️  No artifacts created").expect("Failed to write to stdout");
         return Ok(1);
     }
 
-    runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifact_paths.len()));
+    runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifact_paths.len())).expect("Failed to write to stdout");
 
     // Step 11: Move artifact to specified output path
     let output_path = &args.output_binary;
@@ -272,7 +272,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         "   Moving artifact:\n      from: {}\n      to:   {}",
         source_path.display(),
         output_path.display()
-    ));
+    )).expect("Failed to write to stdout");
 
     // Bundler responsibility: create parent directories
     if let Some(parent) = output_path.parent() {
@@ -310,7 +310,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         }));
     }
 
-    runtime_config.success_println(&format!("✓ Artifact at: {}", output_path.display()));
+    runtime_config.success_println(&format!("✓ Artifact at: {}", output_path.display())).expect("Failed to write to stdout");
 
     // Output the final path to stdout (for diagnostics)
     println!("{}", output_path.display());

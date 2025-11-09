@@ -95,42 +95,42 @@ impl RuntimeConfig {
     }
 
     /// Print verbose message if in verbose mode
-    pub fn verbose_println(&self, message: &str) {
-        self.output.verbose(message);
+    pub fn verbose_println(&self, message: &str) -> std::io::Result<()> {
+        self.output.verbose(message)
     }
 
     /// Print warning message if not in quiet mode
-    pub fn warning_println(&self, message: &str) {
-        self.output.warn(message);
+    pub fn warning_println(&self, message: &str) -> std::io::Result<()> {
+        self.output.warn(message)
     }
 
     /// Print success message if not in quiet mode
-    pub fn success_println(&self, message: &str) {
-        self.output.success(message);
+    pub fn success_println(&self, message: &str) -> std::io::Result<()> {
+        self.output.success(message)
     }
 
     /// Print success message (alias for success_println for convenience)
-    pub fn success(&self, message: &str) {
-        self.output.success(message);
+    pub fn success(&self, message: &str) -> std::io::Result<()> {
+        self.output.success(message)
     }
 
     /// Print warning message (alias for warning_println for convenience)
-    pub fn warn(&self, message: &str) {
-        self.output.warn(message);
+    pub fn warn(&self, message: &str) -> std::io::Result<()> {
+        self.output.warn(message)
     }
 
     /// Print progress message
-    pub fn progress(&self, message: &str) {
-        self.output.progress(message);
+    pub fn progress(&self, message: &str) -> std::io::Result<()> {
+        self.output.progress(message)
     }
 
     /// Print section header
-    pub fn section(&self, title: &str) {
-        self.output.section(title);
+    pub fn section(&self, title: &str) -> std::io::Result<()> {
+        self.output.section(title)
     }
 
     /// Print indented text
-    pub fn indent(&self, message: &str) {
-        self.output.indent(message);
+    pub fn indent(&self, message: &str) -> std::io::Result<()> {
+        self.output.indent(message)
     }
 }

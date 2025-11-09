@@ -71,7 +71,7 @@ impl ContainerBundler {
             "{} Building {} package in container...",
             platform_emoji(platform),
             platform_str
-        ));
+        )).expect("Failed to write to stdout");
 
         // Generate UUID for both container name AND temp directory
         let build_uuid = Uuid::new_v4();
@@ -119,7 +119,7 @@ impl ContainerBundler {
                 .await;
         }
 
-        runtime_config.indent(&format!("✓ Created {} package", platform_str));
+        runtime_config.indent(&format!("✓ Created {} package", platform_str)).expect("Failed to write to stdout");
 
         // Discover and move artifacts
         let artifact_mgr = ArtifactManager::new(workspace_path.clone());

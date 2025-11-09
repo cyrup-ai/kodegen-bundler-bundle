@@ -44,7 +44,7 @@ impl Drop for ContainerGuard {
                 if !status.success() {
                     // Optional: Log cleanup failure for debugging
                     // We don't panic or propagate error since we're already in cleanup path
-                    self.output.warn(&format!(
+                    let _ = self.output.warn(&format!(
                         "Failed to cleanup container '{}' (exit code: {})",
                         self.name,
                         status.code().unwrap_or(-1)
@@ -64,7 +64,7 @@ impl Drop for ContainerGuard {
                         let _ = child.kill();
                         let _ = child.wait();
 
-                        self.output.warn(&format!(
+                        let _ = self.output.warn(&format!(
                             "Timed out cleaning up container '{}' after {} seconds. \
                              Docker daemon may be unresponsive.",
                             self.name,

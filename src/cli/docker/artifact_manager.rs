@@ -56,7 +56,7 @@ impl ArtifactManager {
         runtime_config.verbose_println(&format!(
             "Scanning for artifacts in: {}",
             bundle_dir.display()
-        ));
+        )).expect("Failed to write to stdout");
 
         // Use spawn_blocking for complex directory iteration with filtering
         let artifacts = {
@@ -89,7 +89,7 @@ impl ArtifactManager {
                     })?;
 
                     if !metadata.is_file() || metadata.is_symlink() {
-                        runtime_config.verbose_println(&format!("  Skipping non-regular file: {}", path.display()));
+                        runtime_config.verbose_println(&format!("  Skipping non-regular file: {}", path.display())).expect("Failed to write to stdout");
                         continue;
                     }
 
@@ -99,7 +99,7 @@ impl ArtifactManager {
                             "  Skipping small file: {} ({} bytes)",
                             path.display(),
                             metadata.len()
-                        ));
+                        )).expect("Failed to write to stdout");
                         continue;
                     }
 
@@ -121,13 +121,13 @@ impl ArtifactManager {
                     };
 
                     if is_valid {
-                        runtime_config.verbose_println(&format!("  ✓ Artifact: {}", path.display()));
+                        runtime_config.verbose_println(&format!("  ✓ Artifact: {}", path.display())).expect("Failed to write to stdout");
                         artifacts.push(path);
                     } else {
                         runtime_config.verbose_println(&format!(
                             "  Skipping non-artifact: {} (wrong extension)",
                             path.display()
-                        ));
+                        )).expect("Failed to write to stdout");
                     }
                 }
 
@@ -142,7 +142,7 @@ impl ArtifactManager {
             })??
         };
 
-        runtime_config.verbose_println(&format!("Collected {} artifact(s)", artifacts.len()));
+        runtime_config.verbose_println(&format!("Collected {} artifact(s)", artifacts.len())).expect("Failed to write to stdout");
 
         if artifacts.is_empty() {
             return Err(self.format_no_artifacts_error(&bundle_dir, platform).await?);
@@ -339,7 +339,7 @@ impl ArtifactManager {
         runtime_config.verbose_println(&format!(
             "Moved artifacts from temp to final location: {}",
             final_bundle_dir.display()
-        ));
+        )).expect("Failed to write to stdout");
 
         // Update artifact paths to point to final location
         let artifacts = artifacts
@@ -369,14 +369,14 @@ impl ArtifactManager {
         runtime_config.verbose_println(&format!(
             "Cleaning up temporary target directory: {}",
             temp_target_dir.display()
-        ));
+        )).expect("Failed to write to stdout");
 
         if let Err(e) = tokio::fs::remove_dir_all(temp_target_dir).await {
             runtime_config.warn(&format!(
                 "Failed to cleanup temp directory {}: {}",
                 temp_target_dir.display(),
                 e
-            ));
+            )).expect("Failed to write to stdout");
         }
     }
 }

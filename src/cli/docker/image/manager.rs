@@ -101,14 +101,14 @@ pub async fn ensure_image_built(
     })?;
 
     // Extract embedded .devcontainer resources to temp directory
-    runtime_config.verbose_println("Extracting embedded Dockerfile...");
+    runtime_config.verbose_println("Extracting embedded Dockerfile...").expect("Failed to write to stdout");
     crate::cli::commands::copy_embedded_devcontainer(temp_dir.path())?;
 
     let dockerfile_path = temp_dir.path().join(".devcontainer/Dockerfile");
 
     // Force rebuild if requested
     if force_rebuild {
-        runtime_config.progress("Force rebuilding Docker image (--rebuild-image)...");
+        runtime_config.progress("Force rebuilding Docker image (--rebuild-image)...").expect("Failed to write to stdout");
         return build_docker_image(temp_dir.path(), runtime_config).await;
     }
 
@@ -154,7 +154,7 @@ pub async fn ensure_image_built(
         runtime_config.verbose_println(&format!(
             "Found existing Docker image: {}",
             &image_id[..12.min(image_id.len())]
-        ));
+        )).expect("Failed to write to stdout");
 
         match is_image_up_to_date(&image_id, &dockerfile_path, runtime_config).await {
             Ok(true) => {
@@ -165,19 +165,19 @@ pub async fn ensure_image_built(
                     runtime_config.warn(&format!(
                         "Docker image is {} days old - rebuilding to get base image updates",
                         age_days
-                    ));
+                    )).expect("Failed to write to stdout");
                     return build_docker_image(temp_dir.path(), runtime_config).await;
                 }
 
-                runtime_config.verbose_println("Docker image is up-to-date");
+                runtime_config.verbose_println("Docker image is up-to-date").expect("Failed to write to stdout");
                 return Ok(());
             }
             Ok(false) => {
                 runtime_config.warn(&format!(
                     "Docker image {} is outdated (Dockerfile modified since image creation)",
                     BUILDER_IMAGE_NAME
-                ));
-                runtime_config.progress("Rebuilding Docker image...");
+                )).expect("Failed to write to stdout");
+                runtime_config.progress("Rebuilding Docker image...").expect("Failed to write to stdout");
                 return build_docker_image(temp_dir.path(), runtime_config).await;
             }
             Err(e) => {
@@ -185,7 +185,7 @@ pub async fn ensure_image_built(
                 runtime_config.warn(&format!(
                     "Could not verify image freshness: {}\nRebuilding to be safe...",
                     e
-                ));
+                )).expect("Failed to write to stdout");
                 return build_docker_image(temp_dir.path(), runtime_config).await;
             }
         }
@@ -195,6 +195,6 @@ pub async fn ensure_image_built(
     runtime_config.progress(&format!(
         "Building {} Docker image (this may take a few minutes)...",
         BUILDER_IMAGE_NAME
-    ));
+    )).expect("Failed to write to stdout");
     build_docker_image(temp_dir.path(), runtime_config).await
 }

@@ -17,10 +17,6 @@ keywords = [
 ]
 license = "Apache-2.0 OR MIT"
 
-[lib]
-name = "kodegen_bundler_bundle"
-path = "src/lib.rs"
-
 [[bin]]
 name = "kodegen_bundler_bundle"
 path = "src/main.rs"

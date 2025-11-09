@@ -102,19 +102,19 @@ pub async fn is_image_up_to_date(
             "Dockerfile modified {} seconds after image creation (tolerance: {}s)",
             time_diff_secs,
             STALENESS_TOLERANCE_SECS
-        ));
+        )).expect("Failed to write to stdout");
         runtime_config.verbose_println(&format!(
             "  Dockerfile: {} | Image: {}",
             dockerfile_time.format("%Y-%m-%d %H:%M:%S UTC"),
             image_time.format("%Y-%m-%d %H:%M:%S UTC")
-        ));
+        )).expect("Failed to write to stdout");
         Ok(false) // Definitely stale
     } else if time_diff_secs < -STALENESS_TOLERANCE_SECS {
         // Image created significantly after Dockerfile - definitely fresh
         runtime_config.verbose_println(&format!(
             "Image is up-to-date (created {} after Dockerfile)",
             humanize_duration(-time_diff_secs)
-        ));
+        )).expect("Failed to write to stdout");
         Ok(true) // Definitely fresh
     } else {
         // Within tolerance window - treat as fresh to avoid false positives
@@ -122,7 +122,7 @@ pub async fn is_image_up_to_date(
             "Image and Dockerfile times very close ({}s difference, tolerance: {}s) - treating as fresh",
             time_diff_secs.abs(),
             STALENESS_TOLERANCE_SECS
-        ));
+        )).expect("Failed to write to stdout");
         Ok(true) // Within tolerance - assume fresh
     }
 }

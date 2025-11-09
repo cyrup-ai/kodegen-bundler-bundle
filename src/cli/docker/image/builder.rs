@@ -27,7 +27,7 @@ pub async fn build_docker_image(
 ) -> Result<(), BundlerError> {
     let dockerfile_dir = docker_build_context.join(".devcontainer");
 
-    runtime_config.progress(&format!("Building Docker image: {}", BUILDER_IMAGE_NAME));
+    runtime_config.progress(&format!("Building Docker image: {}", BUILDER_IMAGE_NAME)).expect("Failed to write to stdout");
 
     // Spawn with piped stdout and stderr for streaming
     let mut child = Command::new("docker")
@@ -58,7 +58,7 @@ pub async fn build_docker_image(
                 let reader = BufReader::new(stdout);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    runtime_config.indent(&line);
+                    runtime_config.indent(&line).expect("Failed to write docker build output");
                 }
             }
         },
@@ -67,7 +67,7 @@ pub async fn build_docker_image(
                 let reader = BufReader::new(stderr);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    runtime_config.indent(&line);
+                    runtime_config.indent(&line).expect("Failed to write docker build output");
                 }
             }
         }
@@ -87,11 +87,11 @@ pub async fn build_docker_image(
         }
         Err(_elapsed) => {
             // Timeout occurred - kill the process before returning error
-            runtime_config.warn("Docker build timed out, terminating process...");
+            runtime_config.warn("Docker build timed out, terminating process...").expect("Failed to write to stdout");
 
             // Kill process (SIGKILL)
             if let Err(e) = child.kill().await {
-                runtime_config.warn(&format!("Failed to kill docker build process: {}", e));
+                runtime_config.warn(&format!("Failed to kill docker build process: {}", e)).expect("Failed to write to stdout");
             }
 
             // Wait for process to exit and reap zombie (with short timeout)
@@ -128,6 +128,6 @@ pub async fn build_docker_image(
         }));
     }
 
-    runtime_config.success("Docker image built successfully");
+    runtime_config.success("Docker image built successfully").expect("Failed to write to stdout");
     Ok(())
 }

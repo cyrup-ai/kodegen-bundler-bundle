@@ -183,7 +183,7 @@ impl ContainerRunner {
                     let mut lines = reader.lines();
 
                     while let Ok(Some(line)) = lines.next_line().await {
-                        runtime_config.indent(&line);
+                        runtime_config.indent(&line).expect("Failed to write docker output");
                     }
                 }
             },
@@ -221,10 +221,10 @@ impl ContainerRunner {
                 runtime_config.warn(&format!(
                     "Docker bundling timed out after {} minutes, terminating...",
                     DOCKER_RUN_TIMEOUT.as_secs() / 60
-                ));
+                )).expect("Failed to write to stdout");
 
                 if let Err(e) = child.kill().await {
-                    runtime_config.warn(&format!("Failed to kill docker run process: {}", e));
+                    runtime_config.warn(&format!("Failed to kill docker run process: {}", e)).expect("Failed to write to stdout");
                 }
 
                 let _ = tokio::time::timeout(Duration::from_secs(10), child.wait()).await;
