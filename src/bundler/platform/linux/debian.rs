@@ -378,7 +378,6 @@ async fn generate_scripts(settings: &Settings, control_dir: &Path) -> Result<()>
             // Create with executable permissions
             #[cfg(unix)]
             {
-                use std::os::unix::fs::OpenOptionsExt;
                 let mut dest_file = tokio::fs::OpenOptions::new()
                     .create(true)
                     .write(true)

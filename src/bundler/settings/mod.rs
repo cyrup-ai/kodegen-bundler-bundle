@@ -23,4 +23,7 @@ pub use core::Settings;
 pub use linux::{AppImageSettings, DebianSettings, RpmSettings};
 pub use macos::{DmgSettings, MacOsSettings};
 pub use package::PackageSettings;
-pub use windows::WindowsSettings;
+// NSISInstallerMode and NsisCompression are unused on macOS (nsis module is cfg-gated)
+// but required on Linux for Windows bundling via Wine
+#[cfg_attr(target_os = "macos", allow(unused_imports))]
+pub use windows::{NSISInstallerMode, NsisCompression, WindowsSettings};

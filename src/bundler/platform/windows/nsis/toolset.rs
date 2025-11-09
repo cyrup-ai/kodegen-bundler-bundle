@@ -5,10 +5,8 @@
 //! - Linux/macOS: Locates system-installed makensis binary
 
 use crate::bundler::error::{Context, Error, ErrorExt, Result};
-use std::path::PathBuf;
-
-#[cfg(windows)]
 use crate::bundler::utils::http;
+use std::path::PathBuf;
 
 // NSIS download constants (Windows only)
 #[cfg(windows)]
