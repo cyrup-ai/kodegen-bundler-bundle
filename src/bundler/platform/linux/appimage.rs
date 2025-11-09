@@ -267,7 +267,7 @@ async fn create_desktop_file(settings: &Settings, app_dir: &Path) -> Result<()> 
             .await?;
     }
 
-    if let Some(category) = &bundle.category {
+    if let Some(category) = bundle.category.as_ref().and_then(|c| c.linux.as_ref()) {
         file.write_all(format!("Categories={}\n", category).as_bytes())
             .await?;
     }

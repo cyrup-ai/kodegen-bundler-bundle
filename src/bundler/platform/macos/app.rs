@@ -132,7 +132,12 @@ async fn create_info_plist(
     }
 
     // Application category
-    if let Some(category) = settings.bundle_settings().category.as_ref() {
+    if let Some(category) = settings
+        .bundle_settings()
+        .category
+        .as_ref()
+        .and_then(|c| c.macos.as_ref())
+    {
         dict.insert("LSApplicationCategoryType".into(), category.clone().into());
     }
 

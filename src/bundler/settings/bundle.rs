@@ -5,6 +5,40 @@ use super::{
 };
 use std::path::PathBuf;
 
+/// Platform-specific application category settings.
+///
+/// Different platforms require different category formats:
+/// - Linux: freedesktop.org categories (e.g., "Development", "Utility")
+/// - macOS: LSApplicationCategoryType (e.g., "public.app-category.developer-tools")
+/// - Windows: Optional custom category
+///
+/// # Example
+///
+/// ```toml
+/// [package.metadata.bundle.category]
+/// linux = "Development"
+/// macos = "public.app-category.developer-tools"
+/// ```
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct CategorySettings {
+    /// Linux category (freedesktop.org Desktop Entry Specification).
+    ///
+    /// Valid values: AudioVideo, Audio, Video, Development, Education, Game,
+    /// Graphics, Network, Office, Settings, Utility
+    #[serde(default)]
+    pub linux: Option<String>,
+
+    /// macOS category (LSApplicationCategoryType).
+    ///
+    /// Example: "public.app-category.developer-tools"
+    #[serde(default)]
+    pub macos: Option<String>,
+
+    /// Windows category (optional).
+    #[serde(default)]
+    pub windows: Option<String>,
+}
+
 /// Bundle configuration for all platforms.
 ///
 /// Central configuration structure containing metadata and platform-specific settings.
@@ -89,13 +123,18 @@ pub struct BundleSettings {
     #[serde(default)]
     pub copyright: Option<String>,
 
-    /// Application category.
+    /// Application category (platform-specific).
     ///
-    /// Common values: "Utility", "Developer Tools", "Graphics", "Productivity"
+    /// Configure in Cargo.toml:
+    /// ```toml
+    /// [package.metadata.bundle.category]
+    /// linux = "Development"
+    /// macos = "public.app-category.developer-tools"
+    /// ```
     ///
     /// Default: None
     #[serde(default)]
-    pub category: Option<String>,
+    pub category: Option<CategorySettings>,
 
     /// Short description (one line).
     ///

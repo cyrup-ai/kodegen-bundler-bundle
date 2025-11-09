@@ -141,7 +141,11 @@ async fn generate_desktop_file(settings: &Settings, data_dir: &Path) -> Result<(
     // Clone necessary data for the blocking task
     let product_name = settings.product_name().to_string();
     let short_description = settings.bundle_settings().short_description.clone();
-    let category = settings.bundle_settings().category.clone();
+    let category = settings
+        .bundle_settings()
+        .category
+        .as_ref()
+        .and_then(|c| c.linux.clone());
 
     tokio::task::spawn_blocking(move || -> Result<()> {
         if let Some(parent) = desktop_path.parent() {

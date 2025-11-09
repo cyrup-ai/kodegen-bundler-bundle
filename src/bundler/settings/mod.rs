@@ -18,7 +18,7 @@ mod windows;
 // Re-export all public types
 pub use arch::Arch;
 pub use builder::SettingsBuilder;
-pub use bundle::{BundleBinary, BundleSettings};
+pub use bundle::{BundleBinary, BundleSettings, CategorySettings};
 pub use core::Settings;
 pub use linux::{AppImageSettings, DebianSettings, RpmSettings};
 pub use macos::{DmgSettings, MacOsSettings};
