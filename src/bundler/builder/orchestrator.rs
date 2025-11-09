@@ -194,7 +194,7 @@ impl Bundler {
                     crate::bundler::platform::macos::dmg::bundle_project(&self.settings, identity)
                         .await?
                 }
-                #[cfg(target_os = "windows")]
+                #[cfg(any(target_os = "windows", target_os = "linux"))]
                 PackageType::Nsis => {
                     crate::bundler::platform::windows::nsis::bundle_project(&self.settings).await?
                 }

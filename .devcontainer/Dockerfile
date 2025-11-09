@@ -24,6 +24,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     # NSIS native Linux compiler for Windows installers
     nsis \
+    # Windows cross-compilation toolchain (for building Windows binaries on Linux)
+    gcc-mingw-w64-x86-64 \
+    g++-mingw-w64-x86-64 \
     # Linux package tools
     rpm \
     fakeroot \
@@ -78,7 +81,7 @@ USER root
 # Install Rust nightly with common targets and components
 RUN rustup default nightly \
     && rustup component add rustfmt clippy \
-    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin \
+    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin x86_64-pc-windows-gnu \
     && chmod -R a+rX /usr/local/rustup /usr/local/cargo
 
 # Switch back to builder user

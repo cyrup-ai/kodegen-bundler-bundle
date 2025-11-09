@@ -55,15 +55,34 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         manifest.metadata.name, manifest.metadata.version
     ));
 
-    // Step 3: Build binary if needed
+    // Step 3: Parse platform to determine build target
+    let package_type = parse_platform_string(&args.platform)?;
+    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type));
+
+    // Step 4: Determine cross-compilation target for NSIS on non-Windows
+    let cross_compile_target = if package_type == PackageType::Nsis && std::env::consts::OS != "windows" {
+        Some("x86_64-pc-windows-gnu")
+    } else {
+        None
+    };
+
+    // Step 5: Build binary if needed
     if !args.no_build {
         runtime_config.section("🔨 Building binary...");
 
-        let build_status = std::process::Command::new("cargo")
-            .arg("build")
+        let mut cmd = std::process::Command::new("cargo");
+        cmd.arg("build")
             .arg("--release")
             .arg("--bin")
-            .arg(&args.binary_name)
+            .arg(&args.binary_name);
+
+        // Add cross-compilation target if needed
+        if let Some(target) = cross_compile_target {
+            runtime_config.verbose_println(&format!("   Cross-compiling for {}", target));
+            cmd.arg("--target").arg(target);
+        }
+
+        let build_status = cmd
             .current_dir(&args.repo_path)
             .status()
             .map_err(|e| {
@@ -85,24 +104,30 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         runtime_config.verbose_println("   Skipping build (--no-build specified)");
     }
 
-    // Step 4: Parse platform string to PackageType
-    let package_type = parse_platform_string(&args.platform)?;
-    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type));
-
-    // Step 5: Determine binary path
-    // For universal binaries, use target/universal/release/
-    // For specific targets, use target/{target}/release/ (e.g., target/x86_64-apple-darwin/release/)
-    // For default builds, use target/release/
-    let target_dir = if let Some(ref target) = args.target {
+    // Step 6: Determine binary path
+    // Priority: cross_compile_target > args.target > default
+    let target_dir = if let Some(target) = cross_compile_target {
+        // Cross-compilation (e.g., NSIS on Linux builds for Windows)
+        args.repo_path.join("target").join(target).join("release")
+    } else if let Some(ref target) = args.target {
+        // Explicit target from user
         if target == "universal" {
             args.repo_path.join("target").join("universal").join("release")
         } else {
             args.repo_path.join("target").join(target).join("release")
         }
     } else {
+        // Default native build
         args.repo_path.join("target").join("release")
     };
-    let binary_path = target_dir.join(&args.binary_name);
+    
+    // Windows binaries have .exe extension
+    let binary_name_with_ext = if cross_compile_target.is_some() {
+        format!("{}.exe", args.binary_name)
+    } else {
+        args.binary_name.clone()
+    };
+    let binary_path = target_dir.join(&binary_name_with_ext);
 
     runtime_config.verbose_println(&format!("   Expected binary path: {}", binary_path.display()));
 
