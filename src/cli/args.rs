@@ -12,76 +12,35 @@ use std::path::PathBuf;
     name = "kodegen_bundler_bundle",
     version,
     about = "Platform package bundler for Rust binaries",
-    long_about = "Creates platform-specific packages (.deb, .rpm, .dmg, .msi, AppImage) for Rust binaries.
+    long_about = "Creates platform-specific packages (.deb, .rpm, .dmg, AppImage, .exe) for Rust binaries.
+
+Clones repository from GitHub to tmp, builds binary, creates package, moves to output path.
 
 Usage:
-  kodegen_bundler_bundle --repo-path /path/to/repo --platform deb --binary-name myapp
-  kodegen_bundler_bundle -r . -p dmg -b kodegen --target x86_64-apple-darwin
-  kodegen_bundler_bundle --repo-path /workspace --platform rpm --binary-name tool --no-build"
+  kodegen_bundler_bundle --source . --platform deb --output-binary /tmp/myapp.deb
+  kodegen_bundler_bundle --source cyrup-ai/kodegen --platform dmg --output-binary ./kodegen.dmg
+  kodegen_bundler_bundle --source https://github.com/user/repo --platform nsis --output-binary setup.exe
+
+Exit code 0 = artifact guaranteed to exist at output path."
 )]
 pub struct Args {
-    /// Path to repository root
-    #[arg(short = 'r', long, value_name = "PATH")]
-    pub repo_path: PathBuf,
+    /// Source repository (local path, GitHub org/repo, or GitHub URL)
+    #[arg(short = 's', long, value_name = "SOURCE")]
+    pub source: String,
 
     /// Platform to bundle: deb, rpm, dmg, macos-bundle, nsis, appimage
     #[arg(short, long, value_name = "PLATFORM")]
     pub platform: String,
 
-    /// Binary name to bundle
-    #[arg(short, long, value_name = "NAME")]
-    pub binary_name: String,
-
-    /// Output directory for artifacts
-    #[arg(long, value_name = "PATH")]
-    pub output_dir: Option<PathBuf>,
-
-    /// Target architecture (e.g., x86_64-apple-darwin)
-    #[arg(short, long)]
-    pub target: Option<String>,
-
-    /// Skip building binary (assume already built)
-    #[arg(long)]
-    pub no_build: bool,
-
-    /// Enable verbose output
-    #[arg(long)]
-    pub verbose: bool,
-
-    /// Optional output path for the created artifact
+    /// Output path for the created artifact
     ///
-    /// If specified, the bundler will move the created artifact to this exact path.
+    /// The bundler will move the created artifact to this exact path.
     /// The bundler will create parent directories if they don't exist.
     /// The filename should include the architecture (e.g., kodegen_0.1.0_arm64.deb).
     ///
     /// Contract: Exit code 0 guarantees the artifact exists at this path.
     #[arg(short = 'o', long, value_name = "PATH")]
-    pub output_binary: Option<PathBuf>,
-
-    // ===== DOCKER CONTAINER LIMITS =====
-    /// Docker container memory limit (e.g., "2g", "4096m")
-    ///
-    /// Defaults to auto-detected safe limit (50% of host RAM, min 2GB, max 16GB)
-    #[arg(long, env = "KODEGEN_DOCKER_MEMORY")]
-    pub docker_memory: Option<String>,
-
-    /// Docker container memory + swap limit (e.g., "6g", "8192m")
-    ///
-    /// Must be ≥ memory limit. Defaults to memory + 2GB if not specified.
-    #[arg(long, env = "KODEGEN_DOCKER_MEMORY_SWAP")]
-    pub docker_memory_swap: Option<String>,
-
-    /// Docker container CPU limit (e.g., "2.0", "4", "1.5")
-    ///
-    /// Supports fractional values. Defaults to auto-detected (50% of host cores, min 2)
-    #[arg(long, env = "KODEGEN_DOCKER_CPUS")]
-    pub docker_cpus: Option<String>,
-
-    /// Docker container process limit
-    ///
-    /// Maximum number of processes. Defaults to 1000.
-    #[arg(long, env = "KODEGEN_DOCKER_PIDS_LIMIT")]
-    pub docker_pids_limit: Option<u32>,
+    pub output_binary: PathBuf,
 }
 
 impl Args {
@@ -92,18 +51,9 @@ impl Args {
 
     /// Validate arguments for consistency
     pub fn validate(&self) -> Result<(), String> {
-        // Validate repo path
-        if !self.repo_path.exists() {
-            return Err(format!(
-                "Repository path does not exist: {}",
-                self.repo_path.display()
-            ));
-        }
-        if !self.repo_path.is_dir() {
-            return Err(format!(
-                "Repository path is not a directory: {}",
-                self.repo_path.display()
-            ));
+        // Validate source format (basic validation - full validation happens during resolve)
+        if self.source.is_empty() {
+            return Err("Source cannot be empty".to_string());
         }
 
         // Validate platform
@@ -116,68 +66,32 @@ impl Args {
             ));
         }
 
-        // Validate binary name is not empty
-        if self.binary_name.is_empty() {
-            return Err("Binary name cannot be empty".to_string());
-        }
-
-        // Validate output directory if provided
-        if let Some(ref output_dir) = self.output_dir
-            && let Some(parent) = output_dir.parent()
-            && !parent.exists()
-        {
-            return Err(format!(
-                "Output directory parent does not exist: {}",
-                parent.display()
-            ));
-        }
-
         Ok(())
     }
 }
 
 /// Configuration derived from command line arguments
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RuntimeConfig {
-    /// Verbosity level
-    pub verbosity: VerbosityLevel,
     /// Output manager for colored terminal output
     output: super::OutputManager,
 }
 
-/// Verbosity level for output
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VerbosityLevel {
-    /// Standard output
-    Normal,
-    /// Detailed output
-    Verbose,
-}
-
 impl From<&Args> for RuntimeConfig {
-    fn from(args: &Args) -> Self {
-        let verbosity = if args.verbose {
-            VerbosityLevel::Verbose
-        } else {
-            VerbosityLevel::Normal
-        };
-
+    fn from(_args: &Args) -> Self {
         let output = super::OutputManager::new(
-            verbosity == VerbosityLevel::Verbose,
-            false, // Never quiet for bundler
+            true,  // Always verbose
+            false, // Never quiet
         );
 
-        Self {
-            verbosity,
-            output,
-        }
+        Self { output }
     }
 }
 
 impl RuntimeConfig {
-    /// Check if verbose output is enabled
-    pub fn is_verbose(&self) -> bool {
-        self.verbosity == VerbosityLevel::Verbose
+    /// Get a reference to the output manager
+    pub fn output(&self) -> &super::OutputManager {
+        &self.output
     }
 
     /// Print verbose message if in verbose mode

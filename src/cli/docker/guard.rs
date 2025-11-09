@@ -11,6 +11,7 @@ use wait_timeout::ChildExt;
 /// Uses bounded timeout to prevent infinite hangs if Docker daemon becomes unresponsive.
 pub(super) struct ContainerGuard {
     pub(super) name: String,
+    pub(super) output: crate::cli::OutputManager,
 }
 
 impl Drop for ContainerGuard {
@@ -43,11 +44,11 @@ impl Drop for ContainerGuard {
                 if !status.success() {
                     // Optional: Log cleanup failure for debugging
                     // We don't panic or propagate error since we're already in cleanup path
-                    eprintln!(
-                        "Warning: Failed to cleanup container '{}' (exit code: {})",
+                    self.output.warn(&format!(
+                        "Failed to cleanup container '{}' (exit code: {})",
                         self.name,
                         status.code().unwrap_or(-1)
-                    );
+                    ));
                 }
             }
             Ok(None) => {
@@ -63,12 +64,12 @@ impl Drop for ContainerGuard {
                         let _ = child.kill();
                         let _ = child.wait();
 
-                        eprintln!(
-                            "Warning: Timed out cleaning up container '{}' after {} seconds. \
+                        self.output.warn(&format!(
+                            "Timed out cleaning up container '{}' after {} seconds. \
                              Docker daemon may be unresponsive.",
                             self.name,
                             timeout.as_secs()
-                        );
+                        ));
                     }
                     Err(_) => {
                         // Can't determine state - try killing anyway

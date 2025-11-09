@@ -61,7 +61,7 @@ impl ArtifactManager {
         // Use spawn_blocking for complex directory iteration with filtering
         let artifacts = {
             let bundle_dir = bundle_dir.clone();
-            let verbose = runtime_config.is_verbose();
+            let runtime_config = runtime_config.clone();
             tokio::task::spawn_blocking(move || {
                 let entries = std::fs::read_dir(&bundle_dir).map_err(|e| {
                     BundlerError::Cli(CliError::ExecutionFailed {
@@ -89,21 +89,17 @@ impl ArtifactManager {
                     })?;
 
                     if !metadata.is_file() || metadata.is_symlink() {
-                        if verbose {
-                            eprintln!("  Skipping non-regular file: {}", path.display());
-                        }
+                        runtime_config.verbose_println(&format!("  Skipping non-regular file: {}", path.display()));
                         continue;
                     }
 
                     // Check minimum size
                     if metadata.len() < 1024 {
-                        if verbose {
-                            eprintln!(
-                                "  Skipping small file: {} ({} bytes)",
-                                path.display(),
-                                metadata.len()
-                            );
-                        }
+                        runtime_config.verbose_println(&format!(
+                            "  Skipping small file: {} ({} bytes)",
+                            path.display(),
+                            metadata.len()
+                        ));
                         continue;
                     }
 
@@ -125,15 +121,13 @@ impl ArtifactManager {
                     };
 
                     if is_valid {
-                        if verbose {
-                            eprintln!("  ✓ Artifact: {}", path.display());
-                        }
+                        runtime_config.verbose_println(&format!("  ✓ Artifact: {}", path.display()));
                         artifacts.push(path);
-                    } else if verbose {
-                        eprintln!(
+                    } else {
+                        runtime_config.verbose_println(&format!(
                             "  Skipping non-artifact: {} (wrong extension)",
                             path.display()
-                        );
+                        ));
                     }
                 }
 

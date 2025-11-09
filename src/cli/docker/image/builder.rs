@@ -29,7 +29,7 @@ pub async fn build_docker_image(
 
     runtime_config.progress(&format!("Building Docker image: {}", BUILDER_IMAGE_NAME));
 
-    // Spawn with piped stdout for streaming
+    // Spawn with piped stdout and stderr for streaming
     let mut child = Command::new("docker")
         .args([
             "build",
@@ -42,7 +42,7 @@ pub async fn build_docker_image(
         ])
         .current_dir(&dockerfile_dir)
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| {
             BundlerError::Cli(CliError::ExecutionFailed {
@@ -51,15 +51,27 @@ pub async fn build_docker_image(
             })
         })?;
 
-    // Stream stdout line-by-line
-    if let Some(stdout) = child.stdout.take() {
-        let reader = BufReader::new(stdout);
-        let mut lines = reader.lines();
-
-        while let Ok(Some(line)) = lines.next_line().await {
-            runtime_config.indent(&line);
+    // Stream both stdout and stderr concurrently through OutputManager
+    tokio::join!(
+        async {
+            if let Some(stdout) = child.stdout.take() {
+                let reader = BufReader::new(stdout);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    runtime_config.indent(&line);
+                }
+            }
+        },
+        async {
+            if let Some(stderr) = child.stderr.take() {
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    runtime_config.indent(&line);
+                }
+            }
         }
-    }
+    );
 
     // Wait with timeout - handle timeout explicitly to kill child
     let status = tokio::time::timeout(DOCKER_BUILD_TIMEOUT, child.wait()).await;
@@ -79,7 +91,7 @@ pub async fn build_docker_image(
 
             // Kill process (SIGKILL)
             if let Err(e) = child.kill().await {
-                eprintln!("Warning: Failed to kill docker build process: {}", e);
+                runtime_config.warn(&format!("Failed to kill docker build process: {}", e));
             }
 
             // Wait for process to exit and reap zombie (with short timeout)

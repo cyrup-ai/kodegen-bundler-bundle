@@ -80,6 +80,7 @@ impl ContainerBundler {
         // Create RAII guard to ensure cleanup on failure
         let _guard = ContainerGuard {
             name: container_name.clone(),
+            output: runtime_config.output().clone(),
         };
 
         // Resolve and validate workspace path

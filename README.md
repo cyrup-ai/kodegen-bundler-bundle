@@ -34,18 +34,29 @@ cargo install --path .
 
 ## Basic Usage
 
-```bash
-# Bundle with automatic artifact path
-kodegen_bundler_bundle --repo-path . --platform deb --binary-name myapp --version 1.0.0
+The bundler accepts exactly **three arguments** and handles everything else internally:
 
-# Bundle with caller-specified output path (recommended for automation)
+```bash
+# Bundle from local repository (reads Cargo.toml for GitHub URL, clones to tmp, builds, bundles)
 kodegen_bundler_bundle \
-  --repo-path . \
+  --source . \
   --platform deb \
-  --binary-name myapp \
-  --version 1.0.0 \
   --output-binary /tmp/artifacts/myapp_1.0.0_arm64.deb
+
+# Bundle from GitHub org/repo (clones to tmp, builds, bundles)
+kodegen_bundler_bundle \
+  --source cyrup-ai/kodegen \
+  --platform dmg \
+  --output-binary /tmp/artifacts/kodegen_0.1.2_arm64.dmg
+
+# Bundle from GitHub URL (clones to tmp, builds, bundles)
+kodegen_bundler_bundle \
+  --source https://github.com/cyrup-ai/kodegen \
+  --platform nsis \
+  --output-binary C:\builds\kodegen_setup.exe
 ```
+
+**Exit code 0 = artifact guaranteed to exist at `--output-binary` path.**
 
 ## Output Path Contract
 
@@ -84,26 +95,43 @@ If bundler returns non-zero exit code:
 
 ## CLI Reference
 
-### Required Arguments
+### The Three Required Arguments
 
 ```bash
---repo-path <PATH>          # Path to repository root
---platform <PLATFORM>       # Target platform (deb, rpm, appimage, dmg, app, nsis, exe)
---binary-name <NAME>        # Name of the binary to bundle
---version <VERSION>         # Package version (e.g., 1.0.0)
-```
+--source <SOURCE>           # Where to get the code (3 formats):
+                           # 1. Local path: . or /path/to/repo
+                           #    → Reads Cargo.toml repository field
+                           #    → Clones from GitHub to /tmp/kodegen-bundle-{uuid}
+                           # 2. GitHub org/repo: cyrup-ai/kodegen
+                           #    → Clones from GitHub to /tmp/kodegen-bundle-{uuid}
+                           # 3. GitHub URL: https://github.com/cyrup-ai/kodegen
+                           #    → Clones from GitHub to /tmp/kodegen-bundle-{uuid}
+                           # 
+                           # ALL sources clone to tmp - NEVER builds in-place
 
-### Optional Arguments
+--platform <PLATFORM>       # Target platform: deb, rpm, appimage, dmg, app, nsis
 
-```bash
---output-binary <PATH>      # Full output path including filename with architecture
+--output-binary <PATH>      # Full output path for final artifact
                            # Example: /tmp/artifacts/myapp_1.0.0_arm64.deb
-                           # Bundler creates parent dirs and moves artifact here
+                           # Bundler creates parent dirs automatically
                            # Exit code 0 guarantees file exists at this path
-
---no-build                  # Skip building binaries (use existing in target/release)
---target <TRIPLE>           # Rust target triple (e.g., x86_64-apple-darwin)
 ```
+
+### What the Bundler Handles Internally
+
+The bundler automatically:
+- Clones repository to tmp directory (`/tmp/kodegen-bundle-{uuid}`)
+- Reads binary name from Cargo.toml
+- Reads version from Cargo.toml
+- Detects target architecture
+- Builds the binary (`cargo build --release`)
+- Creates the platform package
+- Moves artifact to `--output-binary` path
+- Cleans up tmp directory
+- Returns exit code 0 only if artifact exists
+
+**Caller responsibilities**: Specify source, platform, output path
+**Bundler responsibilities**: Everything else
 
 ## Supported Platforms
 
@@ -118,55 +146,56 @@ If bundler returns non-zero exit code:
 
 ## Usage Examples
 
-### Basic Bundling (Auto Output Path)
+### Bundle from Local Repository
 
 ```bash
-# Bundle for current platform
+# Reads repository URL from Cargo.toml, clones to tmp, builds, bundles
 kodegen_bundler_bundle \
-  --repo-path /path/to/project \
+  --source /path/to/project \
   --platform deb \
-  --binary-name myapp \
-  --version 1.0.0
+  --output-binary /tmp/artifacts/myapp_1.0.0_amd64.deb
 
-# Output: ./target/release/myapp_1.0.0_amd64.deb (or similar)
+# Exit code 0 = file guaranteed at /tmp/artifacts/myapp_1.0.0_amd64.deb
 ```
 
-### Contract-Based Bundling (Caller-Specified Output)
+### Bundle from GitHub Org/Repo
 
 ```bash
-# Release workflow specifies exact output path with architecture
+# Clones cyrup-ai/kodegen from GitHub to tmp, builds, bundles
 kodegen_bundler_bundle \
-  --repo-path /tmp/kodegen-release-12345 \
+  --source cyrup-ai/kodegen \
   --platform deb \
-  --binary-name kodegen \
-  --version 2.0.0 \
-  --output-binary /tmp/kodegen-release-12345/artifacts/kodegen_2.0.0_arm64.deb \
-  --no-build
+  --output-binary /tmp/artifacts/kodegen_2.0.0_arm64.deb
 
-# Exit code 0 = file guaranteed at /tmp/kodegen-release-12345/artifacts/kodegen_2.0.0_arm64.deb
-# Bundler created /tmp/kodegen-release-12345/artifacts/ directory automatically
+# Exit code 0 = file guaranteed at /tmp/artifacts/kodegen_2.0.0_arm64.deb
 ```
 
-### macOS Bundle with Output Path
+### Bundle from GitHub URL
 
 ```bash
+# Clones from full GitHub URL to tmp, builds, bundles
 kodegen_bundler_bundle \
-  --repo-path . \
+  --source https://github.com/cyrup-ai/kodegen \
   --platform dmg \
-  --binary-name MyApp \
-  --version 3.1.4 \
-  --output-binary ./dist/MyApp-3.1.4-arm64.dmg
+  --output-binary ./dist/kodegen-3.1.4-arm64.dmg
+
+# Bundler automatically creates ./dist/ directory
 ```
 
-### Windows Installer with Output Path
+### Cross-Platform Bundling
 
 ```bash
+# Build Linux package from macOS (uses Docker internally)
 kodegen_bundler_bundle \
-  --repo-path . \
+  --source . \
+  --platform deb \
+  --output-binary /tmp/myapp.deb
+
+# Build Windows installer from Linux (uses Docker with Wine)
+kodegen_bundler_bundle \
+  --source cyrup-ai/myapp \
   --platform nsis \
-  --binary-name setup \
-  --version 0.5.0 \
-  --output-binary C:\builds\setup_0.5.0_x64_setup.exe
+  --output-binary C:\builds\myapp_setup.exe
 ```
 
 ## Integration with Release Workflows
@@ -187,25 +216,26 @@ The bundler is designed to integrate seamlessly with release automation tools li
 ```rust
 // In kodegen-bundler-release/src/cli/commands/release/impl.rs
 
+// Release workflow constructs output path with architecture
 let arch = detect_target_architecture()?;  // "arm64", "amd64", etc.
-let filename = format!("kodegen_{}_{}. deb", version, arch);
-let output_path = temp_dir.join("artifacts").join(&filename);
+let version = "2.0.0";  // From Cargo.toml (bundler reads this internally too)
+let filename = format!("kodegen_{}_{}.deb", version, arch);
+let output_path = artifacts_dir.join(&filename);
 
+// Call bundler with three arguments
 let output = Command::new("kodegen_bundler_bundle")
-    .arg("--repo-path").arg(temp_dir)
+    .arg("--source").arg("cyrup-ai/kodegen")  // ← GitHub org/repo
     .arg("--platform").arg("deb")
-    .arg("--binary-name").arg("kodegen")
-    .arg("--version").arg(version)
-    .arg("--output-binary").arg(&output_path)  // ← Contract-based path
-    .arg("--no-build")
+    .arg("--output-binary").arg(&output_path)
     .output()?;
 
-// Contract enforcement
+// Contract enforcement: exit 0 = file exists
 if output.status.success() {
     if !output_path.exists() {
         return Err("Bundler contract violation: exit 0 but file missing");
     }
-    // File guaranteed to exist here
+    // File guaranteed to exist at output_path
+    // Bundler handled: cloning, building, bundling, cleanup
 }
 ```
 
@@ -214,25 +244,33 @@ if output.status.success() {
 ### Caller Responsibility
 
 The **caller** (e.g., release workflow) is responsible for:
-- Detecting the target architecture at compile time
-- Constructing the output filename with the correct architecture
-- Passing the complete path to bundler
+- Specifying source (local path, GitHub org/repo, or GitHub URL)
+- Specifying target platform (deb, rpm, dmg, etc.)
+- Constructing the output filename with architecture (e.g., `myapp_1.0.0_arm64.deb`)
+- Passing the complete output path to bundler
 
 ### Bundler Responsibility
 
-The **bundler** is responsible for:
-- Creating the package artifact
+The **bundler** handles everything else:
+- Cloning repository to `/tmp/kodegen-bundle-{uuid}` from GitHub
+- Reading binary name from Cargo.toml
+- Reading version from Cargo.toml  
+- Detecting target architecture
+- Building the binary (`cargo build --release`)
+- Creating the platform package
 - Creating parent directories in the output path
 - Moving the artifact to the specified location
+- Cleaning up tmp directory
 - Verifying the file exists before returning exit 0
 
 ### Why This Design?
 
 This separation ensures:
-- **Release workflow** controls naming conventions and architecture detection
-- **Bundler** focuses solely on package creation and file management
-- **Contract** is enforced through exit codes, not output parsing
-- **Future-proof** for new architectures (no bundler code changes needed)
+- **Caller** only needs to know: source location, platform, and output path
+- **Bundler** is completely self-contained and handles all implementation details
+- **Contract** is enforced through exit codes: 0 = file exists, non-zero = failure
+- **Future-proof** for new platforms and architectures (no caller changes needed)
+- **Isolation** - builds always happen in tmp, never modifies source directory
 
 ## Error Handling
 

@@ -7,6 +7,7 @@ mod bundler;
 mod cli;
 mod error;
 mod metadata;
+mod source;
 
 use std::process;
 

@@ -224,7 +224,7 @@ impl ContainerRunner {
                 ));
 
                 if let Err(e) = child.kill().await {
-                    eprintln!("Warning: Failed to kill docker run process: {}", e);
+                    runtime_config.warn(&format!("Failed to kill docker run process: {}", e));
                 }
 
                 let _ = tokio::time::timeout(Duration::from_secs(10), child.wait()).await;

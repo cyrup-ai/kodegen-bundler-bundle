@@ -24,6 +24,9 @@ pub struct PackageMetadata {
 
     /// Homepage URL if specified in Cargo.toml
     pub homepage: Option<String>,
+
+    /// Repository URL (GitHub URL for cloning)
+    pub repository: Option<String>,
 }
 
 /// Complete manifest data from Cargo.toml
@@ -119,6 +122,11 @@ pub fn load_manifest(cargo_toml_path: &Path) -> Result<CargoManifest> {
 
         homepage: package
             .get("homepage")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+
+        repository: package
+            .get("repository")
             .and_then(|v| v.as_str())
             .map(String::from),
     };

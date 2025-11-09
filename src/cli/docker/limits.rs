@@ -102,29 +102,6 @@ impl ContainerLimits {
         Ok(mb as u64)
     }
 
-    /// Creates limits from Args struct (CLI arguments).
-    pub fn from_args(args: &crate::cli::Args) -> Result<Self, crate::error::BundlerError> {
-        // Use provided values or detect safe limits
-        if args.docker_memory.is_none() 
-            && args.docker_memory_swap.is_none() 
-            && args.docker_cpus.is_none() 
-            && args.docker_pids_limit.is_none() 
-        {
-            // No custom limits - use auto-detected safe limits
-            return Ok(Self::detect_safe_limits());
-        }
-
-        // At least one custom limit provided - build from args
-        let defaults = Self::detect_safe_limits();
-        
-        let memory = args.docker_memory.clone().unwrap_or(defaults.memory);
-        let memory_swap = args.docker_memory_swap.clone();
-        let cpus = args.docker_cpus.clone();
-        let pids_limit = args.docker_pids_limit.unwrap_or(defaults.pids_limit);
-
-        Self::from_cli(memory, memory_swap, cpus, pids_limit)
-            .map_err(|e| crate::error::BundlerError::Cli(crate::error::CliError::InvalidArguments { reason: e }))
-    }
 
     /// Creates limits from CLI arguments.
     ///

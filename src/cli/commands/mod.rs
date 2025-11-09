@@ -15,6 +15,7 @@ use crate::cli::docker::image::ensure_image_built;
 use crate::cli::docker::limits::ContainerLimits;
 use crate::error::{BundlerError, CliError, Result};
 use crate::metadata::load_manifest;
+use crate::source::RepositorySource;
 
 /// Execute the bundle command with parsed arguments
 ///
@@ -34,15 +35,18 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     args.validate()
         .map_err(|e| BundlerError::Cli(CliError::InvalidArguments { reason: e }))?;
 
+    // Step 2: Resolve source repository
+    let source = RepositorySource::parse(&args.source)?;
+    let repo_path = source.resolve().await?;
+
     runtime_config.verbose_println(&format!(
         "📦 Bundler starting for platform: {}",
         args.platform
     ));
-    runtime_config.verbose_println(&format!("   Repository: {}", args.repo_path.display()));
-    runtime_config.verbose_println(&format!("   Binary: {}", args.binary_name));
+    runtime_config.verbose_println(&format!("   Repository: {}", repo_path.display()));
 
-    // Step 2: Load Cargo.toml metadata
-    let cargo_toml = args.repo_path.join("Cargo.toml");
+    // Step 3: Load Cargo.toml metadata
+    let cargo_toml = repo_path.join("Cargo.toml");
     if !cargo_toml.exists() {
         return Err(BundlerError::Cli(CliError::InvalidArguments {
             reason: format!("Cargo.toml not found at {}", cargo_toml.display()),
@@ -54,6 +58,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         "   Loaded manifest: {} v{}",
         manifest.metadata.name, manifest.metadata.version
     ));
+    runtime_config.verbose_println(&format!("   Binary: {}", manifest.binary_name));
 
     // Step 3: Parse platform to determine build target
     let package_type = parse_platform_string(&args.platform)?;
@@ -66,66 +71,89 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         None
     };
 
-    // Step 5: Build binary if needed
-    if !args.no_build {
-        runtime_config.section("🔨 Building binary...");
+    // Step 5: Build binary
+    runtime_config.section("🔨 Building binary...");
 
-        let mut cmd = std::process::Command::new("cargo");
-        cmd.arg("build")
-            .arg("--release")
-            .arg("--bin")
-            .arg(&args.binary_name);
+    let mut cmd = tokio::process::Command::new("cargo");
+    cmd.arg("build")
+        .arg("--release")
+        .arg("--bin")
+        .arg(&manifest.binary_name);
 
-        // Add cross-compilation target if needed
-        if let Some(target) = cross_compile_target {
-            runtime_config.verbose_println(&format!("   Cross-compiling for {}", target));
-            cmd.arg("--target").arg(target);
-        }
-
-        let build_status = cmd
-            .current_dir(&args.repo_path)
-            .status()
-            .map_err(|e| {
-                BundlerError::Cli(CliError::ExecutionFailed {
-                    command: "cargo build".to_string(),
-                    reason: e.to_string(),
-                })
-            })?;
-
-        if !build_status.success() {
-            return Err(BundlerError::Cli(CliError::ExecutionFailed {
-                command: "cargo build".to_string(),
-                reason: format!("Build failed with exit code: {:?}", build_status.code()),
-            }));
-        }
-
-        runtime_config.verbose_println("   ✓ Build completed");
-    } else {
-        runtime_config.verbose_println("   Skipping build (--no-build specified)");
+    // Add cross-compilation target if needed
+    if let Some(target) = cross_compile_target {
+        runtime_config.verbose_println(&format!("   Cross-compiling for {}", target));
+        cmd.arg("--target").arg(target);
     }
 
-    // Step 6: Determine binary path
-    // Priority: cross_compile_target > args.target > default
-    let target_dir = if let Some(target) = cross_compile_target {
-        // Cross-compilation (e.g., NSIS on Linux builds for Windows)
-        args.repo_path.join("target").join(target).join("release")
-    } else if let Some(ref target) = args.target {
-        // Explicit target from user
-        if target == "universal" {
-            args.repo_path.join("target").join("universal").join("release")
-        } else {
-            args.repo_path.join("target").join(target).join("release")
+    // Pipe stdout and stderr to capture output
+    let mut child = cmd
+        .current_dir(&repo_path)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            BundlerError::Cli(CliError::ExecutionFailed {
+                command: "cargo build".to_string(),
+                reason: e.to_string(),
+            })
+        })?;
+
+    // Stream both stdout and stderr concurrently through OutputManager
+    tokio::join!(
+        async {
+            if let Some(stdout) = child.stdout.take() {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+                let reader = BufReader::new(stdout);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    runtime_config.indent(&line);
+                }
+            }
+        },
+        async {
+            if let Some(stderr) = child.stderr.take() {
+                use tokio::io::{AsyncBufReadExt, BufReader};
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    runtime_config.indent(&line);
+                }
+            }
         }
+    );
+
+    // Wait for build to complete
+    let build_status = child.wait().await.map_err(|e| {
+        BundlerError::Cli(CliError::ExecutionFailed {
+            command: "cargo build".to_string(),
+            reason: e.to_string(),
+        })
+    })?;
+
+    if !build_status.success() {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
+            command: "cargo build".to_string(),
+            reason: format!("Build failed with exit code: {:?}", build_status.code()),
+        }));
+    }
+
+    runtime_config.verbose_println("   ✓ Build completed");
+
+    // Step 6: Determine binary path
+    let target_dir = if let Some(target) = cross_compile_target {
+        // Cross-compilation (e.g., NSIS builds for Windows on macOS)
+        repo_path.join("target").join(target).join("release")
     } else {
-        // Default native build
-        args.repo_path.join("target").join("release")
+        // Default native macOS build
+        repo_path.join("target").join("release")
     };
     
     // Windows binaries have .exe extension
     let binary_name_with_ext = if cross_compile_target.is_some() {
-        format!("{}.exe", args.binary_name)
+        format!("{}.exe", manifest.binary_name)
     } else {
-        args.binary_name.clone()
+        manifest.binary_name.clone()
     };
     let binary_path = target_dir.join(&binary_name_with_ext);
 
@@ -151,7 +179,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
                  \n\
                  Did cargo build create the binary with a different name?",
                 binary_path.display(),
-                args.binary_name,
+                manifest.binary_name,
                 target_dir.display(),
                 available_files
             ),
@@ -172,26 +200,20 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         description: manifest.metadata.description.clone(),
         homepage: manifest.metadata.homepage.clone(),
         authors: Some(manifest.metadata.authors.clone()),
-        default_run: Some(args.binary_name.clone()),
+        default_run: Some(manifest.binary_name.clone()),
     };
 
     // Step 7: Create BundleBinary
-    let bundle_binary = BundleBinary::new(args.binary_name.clone(), true);
+    let bundle_binary = BundleBinary::new(manifest.binary_name.clone(), true);
 
     // Step 8: Build Settings via SettingsBuilder
-    let mut builder = SettingsBuilder::new()
+    let settings = SettingsBuilder::new()
         .project_out_directory(&target_dir)
         .package_settings(package_settings)
         .bundle_settings(manifest.bundle_settings)
         .binaries(vec![bundle_binary])
-        .package_types(vec![package_type]);
-
-    // Add target if specified (for cross-compilation or universal binaries)
-    if let Some(ref target) = args.target {
-        builder = builder.target(target.clone());
-    }
-
-    let settings = builder.build()?;
+        .package_types(vec![package_type])
+        .build()?;
 
     runtime_config.section(&format!(
         "📦 Creating {} package...",
@@ -212,10 +234,10 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         // (uses bundler's embedded Dockerfile, no external dependencies)
         ensure_image_built(false, &runtime_config).await?;
 
-        let limits = ContainerLimits::from_args(&args)?;
-        let container_bundler = ContainerBundler::with_limits(args.repo_path.clone(), limits);
+        let limits = ContainerLimits::default();
+        let container_bundler = ContainerBundler::with_limits(repo_path.clone(), limits);
         container_bundler
-            .bundle_platform(package_type, &args.binary_name, &runtime_config)
+            .bundle_platform(package_type, &manifest.binary_name, &runtime_config)
             .await?
     } else {
         // Native platform: use direct bundler
@@ -235,69 +257,63 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
 
     runtime_config.success_println(&format!("✓ Created {} artifact(s)", artifact_paths.len()));
 
-    // Step 11: Handle --output-binary if specified
-    if let Some(output_path) = &args.output_binary {
-        // Get the main artifact path (first path)
-        let source_path = artifact_paths.first().ok_or_else(|| {
+    // Step 11: Move artifact to specified output path
+    let output_path = &args.output_binary;
+
+    // Get the main artifact path (first path)
+    let source_path = artifact_paths.first().ok_or_else(|| {
+        BundlerError::Cli(CliError::ExecutionFailed {
+            command: "get artifact path".to_string(),
+            reason: "No artifact paths returned from bundler".to_string(),
+        })
+    })?;
+
+    runtime_config.verbose_println(&format!(
+        "   Moving artifact:\n      from: {}\n      to:   {}",
+        source_path.display(),
+        output_path.display()
+    ));
+
+    // Bundler responsibility: create parent directories
+    if let Some(parent) = output_path.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
             BundlerError::Cli(CliError::ExecutionFailed {
-                command: "get artifact path".to_string(),
-                reason: "No artifact paths returned from bundler".to_string(),
+                command: "create output directory".to_string(),
+                reason: format!("Failed to create {}: {}", parent.display(), e),
+            })
+        })?;
+    }
+
+    // Move artifact to specified output path (simple rename, same filesystem)
+    tokio::fs::rename(source_path, output_path)
+        .await
+        .map_err(|e| {
+            BundlerError::Cli(CliError::ExecutionFailed {
+                command: "move artifact".to_string(),
+                reason: format!(
+                    "Failed to move artifact from {} to {}: {}",
+                    source_path.display(),
+                    output_path.display(),
+                    e
+                ),
             })
         })?;
 
-        runtime_config.verbose_println(&format!(
-            "   Moving artifact:\n      from: {}\n      to:   {}",
-            source_path.display(),
-            output_path.display()
-        ));
-
-        // Bundler responsibility: create parent directories
-        if let Some(parent) = output_path.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| {
-                BundlerError::Cli(CliError::ExecutionFailed {
-                    command: "create output directory".to_string(),
-                    reason: format!("Failed to create {}: {}", parent.display(), e),
-                })
-            })?;
-        }
-
-        // Move artifact to specified output path (simple rename, same filesystem)
-        tokio::fs::rename(source_path, output_path)
-            .await
-            .map_err(|e| {
-                BundlerError::Cli(CliError::ExecutionFailed {
-                    command: "move artifact".to_string(),
-                    reason: format!(
-                        "Failed to move artifact from {} to {}: {}",
-                        source_path.display(),
-                        output_path.display(),
-                        e
-                    ),
-                })
-            })?;
-
-        // Contract enforcement: verify file exists at destination
-        if !output_path.exists() {
-            return Err(BundlerError::Cli(CliError::ExecutionFailed {
-                command: "verify output".to_string(),
-                reason: format!(
-                    "Move reported success but file does not exist at {}",
-                    output_path.display()
-                ),
-            }));
-        }
-
-        runtime_config.success_println(&format!("✓ Artifact at: {}", output_path.display()));
-
-        // Output the final path to stdout (for diagnostics)
-        println!("{}", output_path.display());
-    } else {
-        // Legacy behavior: output artifact paths in their original locations
-        for path in &artifact_paths {
-            println!("{}", path.display());
-            runtime_config.verbose_println(&format!("   Artifact: {}", path.display()));
-        }
+    // Contract enforcement: verify file exists at destination
+    if !output_path.exists() {
+        return Err(BundlerError::Cli(CliError::ExecutionFailed {
+            command: "verify output".to_string(),
+            reason: format!(
+                "Move reported success but file does not exist at {}",
+                output_path.display()
+            ),
+        }));
     }
+
+    runtime_config.success_println(&format!("✓ Artifact at: {}", output_path.display()));
+
+    // Output the final path to stdout (for diagnostics)
+    println!("{}", output_path.display());
 
     Ok(0)
 }
@@ -362,10 +378,8 @@ fn needs_docker(package_type: &PackageType) -> bool {
             cgroup.contains("docker") || cgroup.contains("buildkit")
         }
         // Check 3: Explicit environment variable
-        else if std::env::var("KODEGEN_IN_DOCKER").is_ok() {
-            true
-        } else {
-            false
+        else {
+            std::env::var("KODEGEN_IN_DOCKER").is_ok()
         }
     };
 
