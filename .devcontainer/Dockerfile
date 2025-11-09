@@ -10,7 +10,7 @@
 # Quick test: package installation
 # Test with: docker build --target=base-packages -t kodegen-test-base .
 # ============================================================================
-FROM rust:1.83-bookworm AS base-packages
+FROM rust AS base-packages
 
 # Install system dependencies for building all platforms
 RUN apt-get update && apt-get install -y \
