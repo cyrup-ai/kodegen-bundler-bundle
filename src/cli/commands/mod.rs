@@ -317,7 +317,39 @@ fn required_os_for_package(package_type: &PackageType) -> &'static str {
 }
 
 /// Check if Docker is needed for cross-platform bundling
+///
+/// Returns false if:
+/// - Already running inside Docker (detected via /.dockerenv, cgroup, or env var)
+/// - Package type matches current OS (native build)
+///
+/// Returns true if:
+/// - Running on host OS and package requires different OS (cross-platform build)
 fn needs_docker(package_type: &PackageType) -> bool {
+    // Auto-detect if we're already inside a Docker container
+    // If so, use native tools (container has all required tooling installed)
+    let in_docker = {
+        // Check 1: /.dockerenv file exists (standard Docker indicator)
+        if std::path::Path::new("/.dockerenv").exists() {
+            true
+        }
+        // Check 2: /proc/1/cgroup contains "docker" or "buildkit"
+        else if let Ok(cgroup) = std::fs::read_to_string("/proc/1/cgroup") {
+            cgroup.contains("docker") || cgroup.contains("buildkit")
+        }
+        // Check 3: Explicit environment variable
+        else if std::env::var("KODEGEN_IN_DOCKER").is_ok() {
+            true
+        } else {
+            false
+        }
+    };
+
+    if in_docker {
+        // Inside Docker: use native tools (deb, rpm, nsis all work natively)
+        return false;
+    }
+
+    // On host system: use Docker for cross-platform builds
     let required_os = required_os_for_package(package_type);
     let current_os = std::env::consts::OS;
     required_os != current_os
