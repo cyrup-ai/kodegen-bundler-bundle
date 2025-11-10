@@ -109,7 +109,7 @@ If bundler returns non-zero exit code:
                            # 
                            # ALL sources clone to tmp - NEVER builds in-place
 
---platform <PLATFORM>       # Target platform: deb, rpm, appimage, dmg, app, nsis
+--platform <PLATFORM>       # Target platform: deb, rpm, appimage, dmg, nsis
 
 --output-binary <PATH>      # Full output path for final artifact
                            # Example: /tmp/artifacts/myapp_1.0.0_arm64.deb

@@ -70,10 +70,10 @@ pub enum PackageType {
     /// Requires [`MacOsBundle`](Self::MacOsBundle) to be built first.
     Dmg,
 
-    /// NSIS installer (.exe).
+    /// Windows executable installer (.exe).
     ///
     /// Creates a Windows installer using NSIS.
-    Nsis,
+    Exe,
 
     /// Debian package (.deb).
     ///
@@ -99,7 +99,7 @@ impl PackageType {
         match self {
             PackageType::MacOsBundle => "app",
             PackageType::Dmg => "dmg",
-            PackageType::Nsis => "nsis",
+            PackageType::Exe => "exe",
             PackageType::Deb => "deb",
             PackageType::Rpm => "rpm",
             PackageType::AppImage => "appimage",
@@ -118,7 +118,7 @@ impl PackageType {
     pub fn priority(&self) -> u32 {
         match self {
             PackageType::MacOsBundle => 0,
-            PackageType::Nsis => 0,
+            PackageType::Exe => 0,
             PackageType::Deb => 0,
             PackageType::Rpm => 0,
             PackageType::AppImage => 0,

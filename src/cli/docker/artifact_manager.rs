@@ -116,7 +116,7 @@ impl ArtifactManager {
                         PackageType::AppImage => {
                             extension.is_none() || extension.as_deref() == Some("appimage")
                         }
-                        PackageType::Nsis => extension.as_deref() == Some("exe"),
+                        PackageType::Exe => extension.as_deref() == Some("exe"),
                         PackageType::Dmg => extension.as_deref() == Some("dmg"),
                         PackageType::MacOsBundle => extension.as_deref() == Some("app"),
                     };

@@ -52,10 +52,10 @@ cargo run --release -- bundle --build --platform deb
 cargo run --release -- bundle --build --platform rpm  
 cargo run --release -- bundle --build --platform appimage
 cargo run --release -- bundle --build --platform msi     # via Wine
-cargo run --release -- bundle --build --platform nsis    # native Linux makensis
+cargo run --release -- bundle --build --platform exe    # native Linux makeexe
 ```
 
-**Output**: `target/release/bundle/{deb,rpm,appimage,msi,nsis}/`
+**Output**: `target/release/bundle/{deb,rpm,appimage,msi,exe}/`
 
 ### 3. Build macOS Packages (On Host Mac)
 
@@ -92,7 +92,7 @@ pub mod linux;   // Compiles .deb, .rpm, AppImage bundlers
 pub mod macos;   // Compiles .app, .dmg bundlers
 
 #[cfg(target_os = "windows")]
-pub mod windows; // Compiles .msi, .nsis bundlers
+pub mod windows; // Compiles .msi, .exe bundlers
 ```
 
 **Linux Container**: Compiles with `target_os = "linux"` → gets Linux + Windows bundlers  
@@ -108,8 +108,8 @@ pub mod windows; // Compiles .msi, .nsis bundlers
 
 #### NSIS (for .exe installers)
 1. `kodegen_release` downloads NSIS from GitHub (existing code)  
-2. Executes via **native Linux `makensis`** (no Wine needed)
-3. `apt-get install nsis` provides the Linux-native compiler
+2. Executes via **native Linux `makeexe`** (no Wine needed)
+3. `apt-get install exe` provides the Linux-native compiler
 
 ### Dependencies Pre-installed
 
@@ -172,7 +172,7 @@ Wine .NET installation is one-time per container volume.
 
 The code automatically downloads tools. To use specific versions, modify:
 - `packages/release/src/bundler/platform/windows/msi/mod.rs` - WiX URL
-- `packages/release/src/bundler/platform/windows/nsis/mod.rs` - NSIS URL
+- `packages/release/src/bundler/platform/windows/exe/mod.rs` - NSIS URL
 
 ### Cross-Compilation Targets
 
@@ -186,5 +186,5 @@ rustup target add aarch64-unknown-linux-gnu
 ## References
 
 - WiX on Wine: https://github.com/suchja/wix-toolset
-- NSIS Linux: https://nsis.sourceforge.io/Docs/AppendixG.html
+- NSIS Linux: https://exe.sourceforge.io/Docs/AppendixG.html
 - Dev Containers: https://containers.dev/

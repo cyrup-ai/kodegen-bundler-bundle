@@ -64,11 +64,11 @@ fn is_native_platform(platform: PackageType) -> bool {
         // macOS native packages (cannot be built in Linux containers)
         ("macos", MacOsBundle | Dmg) => true,
 
-        // Linux native packages (NSIS works natively via makensis)
-        ("linux", Deb | Rpm | AppImage | Nsis) => true,
+        // Linux native packages (Windows .exe works natively via makensis)
+        ("linux", Deb | Rpm | AppImage | Exe) => true,
 
         // Windows native packages
-        ("windows", Nsis) => true,
+        ("windows", Exe) => true,
 
         // Everything else needs Docker
         _ => false,
@@ -83,7 +83,7 @@ pub fn platform_type_to_string(platform: PackageType) -> &'static str {
         PackageType::AppImage => "appimage",
         PackageType::MacOsBundle => "app",
         PackageType::Dmg => "dmg",
-        PackageType::Nsis => "nsis",
+        PackageType::Exe => "exe",
     }
 }
 
@@ -92,6 +92,6 @@ pub fn platform_emoji(platform: PackageType) -> &'static str {
     match platform {
         PackageType::Deb | PackageType::Rpm | PackageType::AppImage => "🐧",
         PackageType::MacOsBundle | PackageType::Dmg => "🍎",
-        PackageType::Nsis => "🪟",
+        PackageType::Exe => "🪟",
     }
 }

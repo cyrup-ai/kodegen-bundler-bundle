@@ -195,7 +195,7 @@ impl Bundler {
                         .await?
                 }
                 #[cfg(target_os = "linux")]
-                PackageType::Nsis => {
+                PackageType::Exe => {
                     crate::bundler::platform::windows::nsis::bundle_project(&self.settings).await?
                 }
                 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -269,7 +269,7 @@ impl Bundler {
             // Add Windows cross-compilation if makensis available
             if *HAS_MAKENSIS {
                 log::debug!("makensis detected - enabling Windows NSIS cross-compilation");
-                types.push(PackageType::Nsis);
+                types.push(PackageType::Exe);
             } else {
                 log::debug!("makensis not available - skipping NSIS installer");
             }

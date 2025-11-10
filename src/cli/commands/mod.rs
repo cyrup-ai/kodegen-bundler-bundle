@@ -107,7 +107,7 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     runtime_config.verbose_println(&format!("   Binary: {}", manifest.binary_name)).expect("Failed to write to stdout");
 
     // Step 4: Determine cross-compilation target for NSIS on non-Windows
-    let cross_compile_target = if package_type == PackageType::Nsis && std::env::consts::OS != "windows" {
+    let cross_compile_target = if package_type == PackageType::Exe && std::env::consts::OS != "windows" {
         Some("x86_64-pc-windows-gnu")
     } else {
         None
@@ -360,11 +360,10 @@ fn parse_platform_string(platform: &str) -> Result<PackageType> {
         "rpm" => Ok(PackageType::Rpm),
         "appimage" => Ok(PackageType::AppImage),
         "dmg" => Ok(PackageType::Dmg),
-        "macos-bundle" | "app" | "bundle" => Ok(PackageType::MacOsBundle),
-        "nsis" | "exe" => Ok(PackageType::Nsis),
+        "exe" => Ok(PackageType::Exe),
         _ => Err(BundlerError::Cli(CliError::InvalidArguments {
             reason: format!(
-                "Unsupported platform '{}'. Valid: deb, rpm, appimage, dmg, macos-bundle (app), nsis (exe)",
+                "Unsupported platform '{}'. Valid: deb, rpm, appimage, dmg, nsis",
                 platform
             ),
         })),
@@ -379,7 +378,7 @@ fn platform_display_name(package_type: &PackageType) -> &'static str {
         PackageType::AppImage => "Linux AppImage",
         PackageType::Dmg => "macOS Disk Image (.dmg)",
         PackageType::MacOsBundle => "macOS Application Bundle (.app)",
-        PackageType::Nsis => "Windows NSIS Installer (.exe)",
+        PackageType::Exe => "Windows NSIS Installer (.exe)",
     }
 }
 
@@ -388,7 +387,7 @@ fn required_os_for_package(package_type: &PackageType) -> &'static str {
     match package_type {
         PackageType::Deb | PackageType::Rpm | PackageType::AppImage => "linux",
         PackageType::Dmg | PackageType::MacOsBundle => "macos",
-        PackageType::Nsis => "windows",
+        PackageType::Exe => "windows",
     }
 }
 
@@ -452,12 +451,12 @@ mod tests {
             PackageType::MacOsBundle
         ));
         assert!(matches!(
-            parse_platform_string("nsis").unwrap(),
-            PackageType::Nsis
+            parse_platform_string("exe").unwrap(),
+            PackageType::Exe
         ));
         assert!(matches!(
             parse_platform_string("exe").unwrap(),
-            PackageType::Nsis
+            PackageType::Exe
         ));
         assert!(parse_platform_string("invalid").is_err());
     }

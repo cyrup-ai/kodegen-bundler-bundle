@@ -57,7 +57,7 @@ impl Args {
         }
 
         // Validate platform
-        let valid_platforms = ["deb", "rpm", "dmg", "macos-bundle", "nsis", "appimage"];
+        let valid_platforms = ["deb", "rpm", "dmg", "macos-bundle", "exe", "appimage"];
         if !valid_platforms.contains(&self.platform.as_str()) {
             return Err(format!(
                 "Invalid platform: {}. Valid platforms: {}",
