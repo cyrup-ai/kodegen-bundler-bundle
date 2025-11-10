@@ -305,16 +305,30 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         })?;
     }
 
-    // Move artifact to specified output path (simple rename, same filesystem)
-    tokio::fs::rename(source_path, output_path)
+    // Move artifact to specified output path (handles cross-filesystem moves)
+    tokio::fs::copy(source_path, output_path)
         .await
         .map_err(|e| {
             BundlerError::Cli(CliError::ExecutionFailed {
-                command: "move artifact".to_string(),
+                command: "copy artifact".to_string(),
                 reason: format!(
-                    "Failed to move artifact from {} to {}: {}",
+                    "Failed to copy artifact from {} to {}: {}",
                     source_path.display(),
                     output_path.display(),
+                    e
+                ),
+            })
+        })?;
+
+    // Remove source file after successful copy
+    tokio::fs::remove_file(source_path)
+        .await
+        .map_err(|e| {
+            BundlerError::Cli(CliError::ExecutionFailed {
+                command: "remove source artifact".to_string(),
+                reason: format!(
+                    "Failed to remove source artifact {}: {}",
+                    source_path.display(),
                     e
                 ),
             })
