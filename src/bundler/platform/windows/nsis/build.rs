@@ -18,14 +18,10 @@ use std::path::{Path, PathBuf};
 /// # Platform-specific behavior
 /// - Windows: Uses `makensis.exe` from the NSIS installation
 /// - Unix: Uses system `makensis` command
-pub async fn run_makensis(nsis_path: &Path, nsi_path: &Path, output_path: &Path) -> Result<()> {
+pub async fn run_makensis(_nsis_path: &Path, nsi_path: &Path, output_path: &Path) -> Result<()> {
     log::info!("Running makensis...");
 
-    let makensis = if cfg!(windows) {
-        nsis_path.join("makensis.exe")
-    } else {
-        PathBuf::from("makensis")
-    };
+    let makensis = PathBuf::from("makensis");
 
     // Ensure output directory exists
     if let Some(parent) = output_path.parent() {

@@ -19,6 +19,3 @@ pub const DOCKER_START_HELP: &str = "Start Docker Desktop from Applications or S
 
 #[cfg(target_os = "linux")]
 pub const DOCKER_START_HELP: &str = "Start Docker daemon: sudo systemctl start docker";
-
-#[cfg(target_os = "windows")]
-pub const DOCKER_START_HELP: &str = "Start Docker Desktop from the Start menu";

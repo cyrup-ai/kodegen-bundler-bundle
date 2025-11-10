@@ -28,7 +28,7 @@
 pub mod linux;
 #[cfg(target_os = "macos")]
 pub mod macos;
-#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 pub mod windows;
 
 use std::fmt;
@@ -155,11 +155,7 @@ impl PackageType {
         {
             vec![PackageType::MacOsBundle, PackageType::Dmg]
         }
-        #[cfg(target_os = "windows")]
-        {
-            vec![PackageType::Nsis]
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             vec![]
         }

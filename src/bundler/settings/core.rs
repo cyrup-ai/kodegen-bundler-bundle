@@ -113,16 +113,8 @@ impl Settings {
     }
 
     /// Returns the full path to a binary.
-    ///
-    /// Automatically appends `.exe` extension on Windows.
     pub fn binary_path(&self, binary: &BundleBinary) -> PathBuf {
-        let mut path = self.project_out_directory.join(binary.name());
-
-        if cfg!(target_os = "windows") {
-            path.set_extension("exe");
-        }
-
-        path
+        self.project_out_directory.join(binary.name())
     }
 
     /// Returns the bundle settings.

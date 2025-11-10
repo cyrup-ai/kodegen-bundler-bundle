@@ -39,8 +39,8 @@
 //! compression = "lzma"
 //! ```
 
-#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 pub mod nsis;
-#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 pub mod sign;
 pub mod util;

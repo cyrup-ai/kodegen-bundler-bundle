@@ -194,18 +194,18 @@ impl Bundler {
                     crate::bundler::platform::macos::dmg::bundle_project(&self.settings, identity)
                         .await?
                 }
-                #[cfg(any(target_os = "windows", target_os = "linux"))]
+                #[cfg(target_os = "linux")]
                 PackageType::Nsis => {
                     crate::bundler::platform::windows::nsis::bundle_project(&self.settings).await?
                 }
-                #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+                #[cfg(not(any(target_os = "linux", target_os = "macos")))]
                 _ => {
                     bail!(
                         "Package type {:?} not supported on this platform",
                         package_type
                     );
                 }
-                #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
                 _ => {
                     bail!(
                         "Package type {:?} not supported on this platform",
@@ -277,8 +277,6 @@ impl Bundler {
             types
         } else if cfg!(target_os = "macos") {
             vec![PackageType::MacOsBundle, PackageType::Dmg]
-        } else if cfg!(target_os = "windows") {
-            vec![PackageType::Nsis]
         } else {
             vec![]
         }
