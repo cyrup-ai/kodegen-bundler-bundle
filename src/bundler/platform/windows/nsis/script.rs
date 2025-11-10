@@ -51,43 +51,28 @@ pub async fn generate_nsi_script(
         .unwrap_or("Unknown Publisher");
     data.insert("publisher", publisher.to_string());
 
-    // Get all three required binaries
+    // Get all binaries (same pattern as Debian/RPM/AppImage bundlers)
     let binaries = settings.binaries();
 
-    // Find kodegen_install binary
-    let kodegen_install = binaries
+    if binaries.is_empty() {
+        return Err(Error::GenericError("No binaries found to bundle".into()));
+    }
+
+    // Collect all binary paths for template
+    let binary_files: Vec<_> = binaries
         .iter()
-        .find(|b| b.name() == "kodegen_install")
-        .ok_or_else(|| Error::GenericError("kodegen_install binary not found".into()))?;
+        .map(|b| settings.binary_path(b).display().to_string())
+        .collect();
+    data.insert("binary_files", binary_files);
 
-    // Find kodegen binary (main MCP server)
-    let kodegen = binaries
+    // Get main binary name for shortcuts (find main binary or use first)
+    let main_binary = binaries
         .iter()
-        .find(|b| b.name() == "kodegen")
-        .ok_or_else(|| Error::GenericError("kodegen binary not found".into()))?;
+        .find(|b| b.main())
+        .or_else(|| binaries.first())
+        .ok_or_else(|| Error::GenericError("No binaries found".into()))?;
 
-    // Find kodegend binary (daemon)
-    let kodegend = binaries
-        .iter()
-        .find(|b| b.name() == "kodegend")
-        .ok_or_else(|| Error::GenericError("kodegend binary not found".into()))?;
-
-    // Insert binary paths for template
-    data.insert(
-        "kodegen_install_path",
-        settings.binary_path(kodegen_install).display().to_string(),
-    );
-    data.insert(
-        "kodegen_path",
-        settings.binary_path(kodegen).display().to_string(),
-    );
-    data.insert(
-        "kodegend_path",
-        settings.binary_path(kodegend).display().to_string(),
-    );
-
-    // Keep binary_name for backward compatibility with other template sections
-    data.insert("binary_name", "kodegen".to_string());
+    data.insert("binary_name", main_binary.name().to_string());
 
     // Install directory based on install mode
     let install_dir = match settings.bundle_settings().windows.nsis.install_mode {

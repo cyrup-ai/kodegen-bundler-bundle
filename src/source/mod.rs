@@ -10,6 +10,11 @@ pub enum RepositorySource {
 }
 
 impl RepositorySource {
+    /// Check if source is a local path (vs GitHub URL)
+    pub fn is_local(&self) -> bool {
+        matches!(self, RepositorySource::Local(_))
+    }
+
     pub fn parse(source: &str) -> Result<Self> {
         // GitHub org/repo: contains '/', no '://', not path-like
         if source.contains('/') && !source.contains("://") 

@@ -95,13 +95,9 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   
   ; Copy all binaries
-  File "{{kodegen_install_path}}"
-  File "{{kodegen_path}}"
-  File "{{kodegend_path}}"
-  
-  ; Run installer wizard with GUI (BLOCKS until wizard completes)
-  DetailPrint "Launching installation wizard..."
-  ExecWait '"$INSTDIR\kodegen_install.exe" --from-platform nsis --gui'
+  {{#each binary_files}}
+  File "{{this}}"
+  {{/each}}
   
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -146,11 +142,11 @@ SectionEnd
 
 ; Uninstaller Section
 Section "Uninstall"
-  ; Remove all installed binaries
-  Delete "$INSTDIR\kodegen_install.exe"
-  Delete "$INSTDIR\kodegen.exe"
-  Delete "$INSTDIR\kodegend.exe"
+  ; Remove uninstaller
   Delete "$INSTDIR\Uninstall.exe"
+
+  ; Remove all installed binaries
+  Delete "$INSTDIR\${BINARY_NAME}.exe"
   
   ; Remove Start Menu shortcuts
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk"

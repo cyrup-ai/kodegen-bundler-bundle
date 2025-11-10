@@ -4,6 +4,7 @@
 
 // Submodules
 mod devcontainer;
+mod git_push;
 
 // Re-export public API
 pub use devcontainer::copy_embedded_devcontainer;
@@ -112,6 +113,12 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     } else {
         None
     };
+
+    // Step 4.5: Push version changes to GitHub (NEW STEP)
+    if source.is_local() {  // Only push if source is local path
+        runtime_config.section("📤 Pushing version changes to GitHub...").expect("Failed to write to stdout");
+        git_push::push_version_changes(&repo_path, &runtime_config).await?;
+    }
 
     // Step 5: Build binary
     runtime_config.section("🔨 Building binary...").expect("Failed to write to stdout");

@@ -67,6 +67,10 @@ tempfile = "3"           # Temporary directories
 
 # Code signing
 kodegen_bundler_sign = { version = "0.1" }
+
+# Git operations for pushing version bumps
+kodegen_tools_git = { version = "0.1" }
+
 base64 = "0.22"
 
 # Bundler dependencies
