@@ -35,17 +35,63 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
     args.validate()
         .map_err(|e| BundlerError::Cli(CliError::InvalidArguments { reason: e }))?;
 
-    // Step 2: Resolve source repository
-    let source = RepositorySource::parse(&args.source)?;
-    let repo_path = source.resolve().await?;
-
     runtime_config.verbose_println(&format!(
         "📦 Bundler starting for platform: {}",
         args.platform
     )).expect("Failed to write to stdout");
+
+    // Step 2: Parse platform to determine build target
+    let package_type = parse_platform_string(&args.platform)?;
+    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type)).expect("Failed to write to stdout");
+
+    // Step 3: Check if Docker is needed BEFORE doing any work
+    if needs_docker(&package_type) {
+        runtime_config.verbose_println(&format!(
+            "   Cross-platform build detected (current: {}, required: {})",
+            std::env::consts::OS,
+            required_os_for_package(&package_type)
+        )).expect("Failed to write to stdout");
+        runtime_config.verbose_println("   Using Docker container for bundling...").expect("Failed to write to stdout");
+
+        // Ensure Docker image is built before attempting to use it
+        ensure_image_built(false, &runtime_config).await?;
+
+        // Pass the bundling task to Docker container
+        // Container will clone, build, and bundle internally
+        let limits = ContainerLimits::default();
+        let container_bundler = ContainerBundler::new(
+            args.source.clone(),
+            args.output_binary.clone(),
+            limits,
+        );
+
+        let artifact_path = container_bundler
+            .bundle(package_type, &runtime_config)
+            .await?;
+
+        // Verify artifact exists at specified output path
+        if !artifact_path.exists() {
+            return Err(BundlerError::Cli(CliError::ExecutionFailed {
+                command: "docker container bundle".to_string(),
+                reason: format!(
+                    "Container bundling completed but artifact not found at {}",
+                    artifact_path.display()
+                ),
+            }));
+        }
+
+        runtime_config.success_println(&format!("✓ ✓ Artifact at: {}", artifact_path.display())).expect("Failed to write to stdout");
+        println!("{}", artifact_path.display());
+        return Ok(0);
+    }
+
+    // Step 4: Native platform execution - resolve source, build, and bundle
+    let source = RepositorySource::parse(&args.source)?;
+    let repo_path = source.resolve().await?;
+
     runtime_config.verbose_println(&format!("   Repository: {}", repo_path.display())).expect("Failed to write to stdout");
 
-    // Step 3: Load Cargo.toml metadata
+    // Step 5: Load Cargo.toml metadata
     let cargo_toml = repo_path.join("Cargo.toml");
     if !cargo_toml.exists() {
         return Err(BundlerError::Cli(CliError::InvalidArguments {
@@ -59,10 +105,6 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         manifest.metadata.name, manifest.metadata.version
     )).expect("Failed to write to stdout");
     runtime_config.verbose_println(&format!("   Binary: {}", manifest.binary_name)).expect("Failed to write to stdout");
-
-    // Step 3: Parse platform to determine build target
-    let package_type = parse_platform_string(&args.platform)?;
-    runtime_config.verbose_println(&format!("   Package type: {:?}", package_type)).expect("Failed to write to stdout");
 
     // Step 4: Determine cross-compilation target for NSIS on non-Windows
     let cross_compile_target = if package_type == PackageType::Nsis && std::env::consts::OS != "windows" {
@@ -220,34 +262,13 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         platform_display_name(&package_type)
     )).expect("Failed to write to stdout");
 
-    // Step 9: Bundle - use Docker if cross-platform, native if same platform
-    let artifact_paths = if needs_docker(&package_type) {
-        // Cross-platform: use Docker
-        runtime_config.verbose_println(&format!(
-            "   Cross-platform build detected (current: {}, required: {})",
-            std::env::consts::OS,
-            required_os_for_package(&package_type)
-        )).expect("Failed to write to stdout");
-        runtime_config.verbose_println("   Using Docker container for bundling...").expect("Failed to write to stdout");
+    // Step 9: Bundle - native platform only (Docker handled earlier)
+    runtime_config.verbose_println("   Native platform build").expect("Failed to write to stdout");
+    let bundler = Bundler::new(settings).await?;
+    let artifacts = bundler.bundle().await?;
 
-        // Ensure Docker image is built before attempting to use it
-        // (uses bundler's embedded Dockerfile, no external dependencies)
-        ensure_image_built(false, &runtime_config).await?;
-
-        let limits = ContainerLimits::default();
-        let container_bundler = ContainerBundler::with_limits(repo_path.clone(), limits);
-        container_bundler
-            .bundle_platform(package_type, &manifest.binary_name, &runtime_config)
-            .await?
-    } else {
-        // Native platform: use direct bundler
-        runtime_config.verbose_println("   Native platform build").expect("Failed to write to stdout");
-        let bundler = Bundler::new(settings).await?;
-        let artifacts = bundler.bundle().await?;
-
-        // Extract paths from artifacts
-        artifacts.into_iter().flat_map(|a| a.paths).collect()
-    };
+    // Extract paths from artifacts
+    let artifact_paths: Vec<std::path::PathBuf> = artifacts.into_iter().flat_map(|a| a.paths).collect();
 
     // Step 10: Handle output
     if artifact_paths.is_empty() {

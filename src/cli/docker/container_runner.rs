@@ -59,36 +59,43 @@ impl ContainerRunner {
         }
     }
 
-    /// Builds Docker command arguments for container execution.
+    /// Builds Docker command arguments for end-to-end bundling.
+    ///
+    /// Container receives source and output path, clones internally,
+    /// builds, and writes artifact to mounted output directory.
     ///
     /// # Arguments
     ///
     /// * `container_name` - Unique container name
-    /// * `temp_target_dir` - Temporary target directory path
+    /// * `source` - Source specification (unchanged from user input)
+    /// * `output_path` - Final output path on host
     /// * `platform` - Platform to bundle
-    /// * `binary_name` - Name of binary
     ///
     /// # Returns
     ///
     /// Vector of command arguments for `docker run`
-    pub fn build_docker_args(
+    pub fn build_docker_args_for_full_bundle(
         &self,
         container_name: &str,
-        temp_target_dir: &Path,
+        source: &str,
+        output_path: &Path,
         platform: PackageType,
-        binary_name: &str,
     ) -> Vec<String> {
         let platform_str = super::platform::platform_type_to_string(platform);
 
-        // SECURITY: Build secure mount arguments
-        let workspace_mount = format!("{}:/workspace:ro", self.workspace_path.display());
-        let target_mount = format!("{}:/workspace/target:rw", temp_target_dir.display());
+        // Extract output filename
+        let output_filename = output_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("output.bin");
+
+        // Mount output directory (self.workspace_path is actually output_parent in new flow)
+        let output_mount = format!("{}:/output:rw", self.workspace_path.display());
 
         let mut docker_args = vec![
             "run".to_string(),
             "--name".to_string(),
             container_name.to_string(),
-            // Note: No --rm flag - ContainerGuard handles cleanup after OOM check
             // SECURITY: Prevent privilege escalation in container
             "--security-opt".to_string(),
             "no-new-privileges".to_string(),
@@ -106,22 +113,16 @@ impl ContainerRunner {
             // Process limits
             "--pids-limit".to_string(),
             self.pids_limit.to_string(),
-            // SECURITY: Mount workspace read-only
+            // Mount output directory
             "-v".to_string(),
-            workspace_mount,
-            // SECURITY: Mount target/ read-write for build outputs
-            "-v".to_string(),
-            target_mount,
-            // Set working directory
+            output_mount,
+            // Working directory in /tmp (not /workspace)
             "-w".to_string(),
-            "/workspace".to_string(),
+            "/tmp/kodegen-build".to_string(),
+            // Environment
+            "-e".to_string(),
+            "CARGO_HOME=/tmp/cargo".to_string(),
         ];
-
-        // Override CARGO_HOME to use /tmp for multi-user access
-        // /tmp has sticky bit (1777) allowing any UID to create files
-        // This avoids file ownership conflicts when --user doesn't match builder UID
-        docker_args.push("-e".to_string());
-        docker_args.push("CARGO_HOME=/tmp/cargo".to_string());
 
         // User mapping for file ownership (Unix only)
         #[cfg(unix)]
@@ -132,25 +133,15 @@ impl ContainerRunner {
             docker_args.push(format!("{}:{}", uid, gid));
         }
 
-        // Add image and bundler command
+        // Image and command
         docker_args.push(self.image_name.clone());
         docker_args.push("kodegen_bundler_bundle".to_string());
         docker_args.push("--source".to_string());
-        docker_args.push("/workspace".to_string());
+        docker_args.push(source.to_string());
         docker_args.push("--platform".to_string());
         docker_args.push(platform_str.to_string());
         docker_args.push("--output-binary".to_string());
-
-        // Construct output path with correct extension for platform
-        let extension = match platform {
-            PackageType::Deb => "deb",
-            PackageType::Rpm => "rpm",
-            PackageType::AppImage => "AppImage",
-            PackageType::Nsis => "exe",
-            PackageType::Dmg => "dmg",
-            PackageType::MacOsBundle => "app",
-        };
-        docker_args.push(format!("/tmp/{}.{}", binary_name, extension));
+        docker_args.push(format!("/output/{}", output_filename));
 
         docker_args
     }

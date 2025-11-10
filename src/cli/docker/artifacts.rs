@@ -1,6 +1,7 @@
 //! Artifact verification and discovery for Docker builds.
 //!
 //! Handles finding and verifying package artifacts created by Docker containers.
+#![allow(dead_code)] // Legacy code - kept for reference
 
 use crate::error::{BundlerError, CliError};
 use std::path::PathBuf;

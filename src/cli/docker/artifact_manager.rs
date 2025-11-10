@@ -1,4 +1,5 @@
 //! Artifact discovery, validation, and file management for bundled packages.
+#![allow(dead_code)] // Legacy code - kept for reference
 
 use super::artifacts::verify_artifacts;
 use crate::bundler::PackageType;
