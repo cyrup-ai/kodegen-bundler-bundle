@@ -43,6 +43,7 @@
 
 pub mod app;
 pub mod dmg;
+pub mod dylib;
 pub mod icon;
 pub mod sign;
 pub mod universal;

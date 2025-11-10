@@ -75,6 +75,9 @@ pub async fn bundle_project(
     // Copy binaries and set executable permissions
     copy_binaries(&macos_dir, settings).await?;
 
+    // Bundle dynamic library dependencies
+    super::dylib::bundle_dylib_dependencies(&macos_dir, &contents_dir, settings).await?;
+
     // Copy custom files
     copy_custom_files(&contents_dir, settings).await?;
 
