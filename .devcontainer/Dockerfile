@@ -70,41 +70,25 @@ ENV PATH=$HOME/.cargo/bin:$PATH
 
 # ============================================================================
 # Stage 3: rust-toolchain
-# Install Rust toolchain and components
+# Install Rust toolchain and components as builder user
 # Test with: docker build --target=rust-toolchain -t kodegen-test-rust .
 # ============================================================================
 FROM user-setup AS rust-toolchain
 
-# Switch to root to make Rust toolchain accessible to all UIDs
-USER root
-ENV HOME=/root
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=/usr/local/cargo/bin:$PATH
-
-# Install Rust nightly with common targets and components
-RUN rustup default nightly \
+# Install Rust as builder user (no root needed)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly \
+    && . $HOME/.cargo/env \
     && rustup component add rustfmt clippy \
-    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin x86_64-pc-windows-gnu \
-    && chmod -R a+rX /usr/local/rustup /usr/local/cargo
-
-# Switch back to builder user
-USER builder
+    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin x86_64-pc-windows-gnu
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
 
 # ============================================================================
 # Stage 4: bundler-builder
-# Build and install bundler binary during image creation
+# Build and install bundler binary as builder user
 # ============================================================================
 FROM rust-toolchain AS bundler-builder
-
-# Switch to root for installing bundler
-USER root
-
-ENV HOME=/root
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=/usr/local/cargo/bin:$PATH
 
 # Configure git for cargo install
 RUN git config --global user.email "builder@kodegen.ai" \

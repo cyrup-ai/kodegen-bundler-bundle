@@ -124,14 +124,8 @@ impl ContainerRunner {
             "CARGO_HOME=/tmp/cargo".to_string(),
         ];
 
-        // User mapping for file ownership (Unix only)
-        #[cfg(unix)]
-        {
-            let uid = users::get_current_uid();
-            let gid = users::get_current_gid();
-            docker_args.push("--user".to_string());
-            docker_args.push(format!("{}:{}", uid, gid));
-        }
+        // Image runs as builder user (UID 1000, GID 1000) by default
+        // No --user flag needed
 
         // Image and command
         docker_args.push(self.image_name.clone());
