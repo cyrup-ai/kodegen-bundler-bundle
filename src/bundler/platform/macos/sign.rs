@@ -44,17 +44,18 @@ pub async fn sign_app(app_bundle: &Path, identity: &str, settings: &Settings) ->
     // Get entitlements path if configured
     let entitlements = settings.bundle_settings().macos.entitlements.as_deref();
 
-    // Sign with hardened runtime (required for notarization)
+    // Sign with hardened runtime and deep signing for all nested components
     kodegen_bundler_sign::macos::sign_with_entitlements(
         app_bundle,
         identity,
         entitlements,
         true, // hardened_runtime = true
+        true, // deep = true (signs all bundled dylibs/frameworks)
     )
     .await
     .map_err(|e| crate::bundler::Error::GenericError(format!("Code signing failed: {}", e)))?;
 
-    log::info!("✓ Successfully signed {}", app_bundle.display());
+    log::info!("✓ Successfully signed {} and all nested components", app_bundle.display());
 
     Ok(())
 }
@@ -200,8 +201,11 @@ pub async fn sign_dmg(dmg_path: &Path, settings: &Settings) -> Result<()> {
 
     // Sign DMG without entitlements or hardened runtime
     kodegen_bundler_sign::macos::sign_with_entitlements(
-        dmg_path, identity, None,  // no entitlements for DMG
+        dmg_path,
+        identity,
+        None,  // no entitlements for DMG
         false, // no hardened runtime for DMG
+        false, // no deep signing for DMG
     )
     .await
     .map_err(|e| crate::bundler::Error::GenericError(format!("DMG signing failed: {}", e)))?;
