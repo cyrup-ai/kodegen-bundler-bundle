@@ -117,12 +117,14 @@ fn get_dylib_dependencies(binary_path: &Path) -> Result<Vec<String>> {
 /// System libraries include:
 /// - /System/Library/ - macOS system frameworks
 /// - /usr/lib/ - System libraries
+/// - "self" - Mach-O special value indicating the binary itself
 ///
 /// Non-system libraries include:
 /// - /opt/homebrew/ - Homebrew packages
 /// - /usr/local/Cellar/ - Homebrew Cellar
 /// - Relative paths or @rpath (already bundled)
 fn is_system_dylib(path: &str) -> bool {
+    path == "self" ||
     path.starts_with("/System/") ||
     path.starts_with("/usr/lib/") ||
     path.starts_with("@rpath") ||
