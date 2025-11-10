@@ -77,6 +77,8 @@ FROM user-setup AS rust-toolchain
 
 # Switch to root to make Rust toolchain accessible to all UIDs
 USER root
+ENV CARGO_HOME=$HOME/.cargo
+ENV PATH=$HOME/.cargo/bin:$PATH
 
 # Install Rust nightly with common targets and components
 RUN rustup default nightly \
@@ -95,6 +97,9 @@ RUN rustc --version && cargo --version
 # Build and install bundler binary during image creation
 # ============================================================================
 FROM rust-toolchain AS bundler-builder
+
+ENV CARGO_HOME=$HOME/.cargo
+ENV PATH=$HOME/.cargo/bin:$PATH
 
 # Install bundler from GitHub main branch (always latest)
 # Cache bust 2025-01-07: Removed --version CLI parameter
@@ -116,6 +121,9 @@ RUN kodegen_bundler_bundle --version || kodegen_bundler_bundle --help
 # Complete build environment ready for compilation with pre-built bundler
 # ============================================================================
 FROM bundler-builder AS full-builder
+
+ENV CARGO_HOME=$HOME/.cargo
+ENV PATH=$HOME/.cargo/bin:$PATH
 
 # Create cache directory for NSIS downloads
 RUN mkdir -p $HOME/.cache/cyrup

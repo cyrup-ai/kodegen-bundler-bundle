@@ -14,6 +14,7 @@ use std::path::Path;
 
 /// Hash algorithm for verification.
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 pub enum HashAlgorithm {
     /// SHA-1 hashing algorithm
@@ -48,6 +49,7 @@ pub async fn download(url: &str) -> Result<Vec<u8>> {
 /// Downloads a file and verifies its hash.
 ///
 /// Returns the file contents if the hash matches, otherwise returns an error.
+#[allow(dead_code)]
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 pub async fn download_and_verify(
     url: &str,
@@ -64,6 +66,7 @@ pub async fn download_and_verify(
 ///
 /// Compares the hash case-insensitively. Returns an error if the hashes don't match.
 /// Uses spawn_blocking to prevent blocking the async runtime during CPU-bound hashing.
+#[allow(dead_code)]
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 pub async fn verify_hash(data: &[u8], expected_hash: &str, algorithm: HashAlgorithm) -> Result<()> {
     use sha1::Digest as _;
@@ -110,6 +113,7 @@ pub async fn verify_hash(data: &[u8], expected_hash: &str, algorithm: HashAlgori
 /// Used by:
 /// - Windows: MSI bundler (extracts WiX toolset)
 /// - Windows: NSIS bundler (extracts NSIS toolset)
+#[allow(dead_code)]
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 pub async fn extract_zip(data: &[u8], dest: &Path) -> Result<()> {
     use async_zip::base::read::mem::ZipFileReader;

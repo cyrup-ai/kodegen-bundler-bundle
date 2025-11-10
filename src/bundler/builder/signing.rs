@@ -3,6 +3,7 @@
 //! This module handles code signing setup, particularly for macOS where
 //! certificates need to be imported from environment variables for CI/CD.
 
+#[cfg(target_os = "macos")]
 use crate::bundler::Result;
 
 /// Setup macOS code signing from environment variables

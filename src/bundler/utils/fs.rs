@@ -10,12 +10,6 @@ use std::{
 };
 use tokio::fs;
 
-#[cfg(target_os = "linux")]
-use tokio::fs::File;
-
-#[cfg(target_os = "linux")]
-use tokio::io::BufWriter;
-
 #[cfg(any(
     target_os = "linux",
     target_os = "dragonfly",
@@ -24,18 +18,6 @@ use tokio::io::BufWriter;
     target_os = "openbsd"
 ))]
 use std::{collections::HashMap, path::PathBuf};
-
-/// Creates a new file at the given path, creating any parent directories as needed.
-///
-/// Returns a `BufWriter` for efficient writing operations.
-#[cfg(target_os = "linux")]
-pub async fn create_file(path: &Path) -> Result<BufWriter<File>> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).await?;
-    }
-    let file = File::create(path).await?;
-    Ok(BufWriter::new(file))
-}
 
 /// Creates the given directory path, erasing it first if specified.
 #[allow(dead_code)]
@@ -90,23 +72,11 @@ fn symlink_dir(src: &Path, dst: &Path) -> io::Result<()> {
     std::os::unix::fs::symlink(src, dst)
 }
 
-/// Makes a symbolic link to a directory.
-#[cfg(windows)]
-fn symlink_dir(src: &Path, dst: &Path) -> io::Result<()> {
-    std::os::windows::fs::symlink_dir(src, dst)
-}
-
 /// Makes a symbolic link to a file.
 #[cfg(unix)]
 #[allow(dead_code)]
 fn symlink_file(src: &Path, dst: &Path) -> io::Result<()> {
     std::os::unix::fs::symlink(src, dst)
-}
-
-/// Makes a symbolic link to a file.
-#[cfg(windows)]
-fn symlink_file(src: &Path, dst: &Path) -> io::Result<()> {
-    std::os::windows::fs::symlink_file(src, dst)
 }
 
 /// Copies a regular file from one path to another, creating any parent

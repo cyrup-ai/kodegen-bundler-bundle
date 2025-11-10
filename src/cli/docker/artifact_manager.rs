@@ -300,42 +300,6 @@ impl ArtifactManager {
             })?;
         }
 
-        #[cfg(windows)]
-        {
-            // Windows: rename() fails if target exists, must remove first
-            // Note: This creates a small race window on Windows, but is acceptable
-            // as the bundler typically runs on Linux for cross-platform builds
-            match tokio::fs::try_exists(&final_bundle_dir).await {
-                Ok(true) => {
-                    tokio::fs::remove_dir_all(&final_bundle_dir).await.map_err(|e| {
-                        BundlerError::Cli(CliError::ExecutionFailed {
-                            command: "remove old bundle directory".to_string(),
-                            reason: format!("Failed to remove {}: {}", final_bundle_dir.display(), e),
-                        })
-                    })?;
-                }
-                Ok(false) => {
-                    // Directory doesn't exist, no need to remove
-                }
-                Err(_) => {
-                    // If we can't check existence, proceed with rename anyway
-                    // The rename operation will fail with a clear error if needed
-                }
-            }
-            
-            tokio::fs::rename(&temp_bundle_dir, &final_bundle_dir).await.map_err(|e| {
-                BundlerError::Cli(CliError::ExecutionFailed {
-                    command: "move artifacts to final location".to_string(),
-                    reason: format!(
-                        "Failed to move {} to {}: {}",
-                        temp_bundle_dir.display(),
-                        final_bundle_dir.display(),
-                        e
-                    ),
-                })
-            })?;
-        }
-
         runtime_config.verbose_println(&format!(
             "Moved artifacts from temp to final location: {}",
             final_bundle_dir.display()

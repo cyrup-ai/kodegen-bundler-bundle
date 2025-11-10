@@ -165,16 +165,6 @@ pub enum Error {
     #[error("HTTP client error: {0}")]
     HttpError(#[from] reqwest::Error),
 
-    /// Invalid glob pattern (Windows file matching).
-    #[cfg(windows)]
-    #[error("{0}")]
-    GlobPattern(#[from] glob::PatternError),
-
-    /// Glob execution error (Windows file matching).
-    #[cfg(windows)]
-    #[error("{0}")]
-    Glob(#[from] glob::GlobError),
-
     /// URL parsing error.
     #[error("{0}")]
     UrlParse(#[from] url::ParseError),
@@ -230,31 +220,6 @@ pub enum Error {
     SemverError(#[from] semver::Error),
 
     // ============= Platform-Specific Errors =============
-    /// Windows SignTool not found in Windows SDK.
-    #[cfg(windows)]
-    #[error("SignTool not found in Windows SDK")]
-    SignToolNotFound,
-
-    /// Failed to open Windows registry.
-    #[cfg(windows)]
-    #[error("failed to open registry {0}")]
-    OpenRegistry(String),
-
-    /// Failed to get Windows registry value.
-    #[cfg(windows)]
-    #[error("failed to get {0} value from registry")]
-    GetRegistryValue(String),
-
-    /// Failed to enumerate Windows registry keys.
-    #[cfg(windows)]
-    #[error("failed to enumerate registry keys")]
-    FailedToEnumerateRegKeys,
-
-    /// Unsupported OS bitness (Windows).
-    #[cfg(windows)]
-    #[error("unsupported OS bitness")]
-    UnsupportedBitness,
-
     /// Application signing failed (all platforms).
     #[error("failed to sign app: {0}")]
     Sign(String),
