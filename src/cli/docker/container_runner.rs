@@ -135,12 +135,22 @@ impl ContainerRunner {
         // Add image and bundler command
         docker_args.push(self.image_name.clone());
         docker_args.push("kodegen_bundler_bundle".to_string());
-        docker_args.push("--repo-path".to_string());
+        docker_args.push("--source".to_string());
         docker_args.push("/workspace".to_string());
         docker_args.push("--platform".to_string());
         docker_args.push(platform_str.to_string());
-        docker_args.push("--binary-name".to_string());
-        docker_args.push(binary_name.to_string());
+        docker_args.push("--output-binary".to_string());
+
+        // Construct output path with correct extension for platform
+        let extension = match platform {
+            PackageType::Deb => "deb",
+            PackageType::Rpm => "rpm",
+            PackageType::AppImage => "AppImage",
+            PackageType::Nsis => "exe",
+            PackageType::Dmg => "dmg",
+            PackageType::MacOsBundle => "app",
+        };
+        docker_args.push(format!("/tmp/{}.{}", binary_name, extension));
 
         docker_args
     }
