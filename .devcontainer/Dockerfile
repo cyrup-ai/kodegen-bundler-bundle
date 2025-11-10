@@ -77,8 +77,9 @@ FROM user-setup AS rust-toolchain
 
 # Switch to root to make Rust toolchain accessible to all UIDs
 USER root
-ENV CARGO_HOME=$HOME/.cargo
-ENV PATH=$HOME/.cargo/bin:$PATH
+ENV HOME=/root
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
 
 # Install Rust nightly with common targets and components
 RUN rustup default nightly \
@@ -98,8 +99,16 @@ RUN rustc --version && cargo --version
 # ============================================================================
 FROM rust-toolchain AS bundler-builder
 
-ENV CARGO_HOME=$HOME/.cargo
-ENV PATH=$HOME/.cargo/bin:$PATH
+# Switch to root for installing bundler
+USER root
+
+ENV HOME=/root
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+# Configure git for cargo install
+RUN git config --global user.email "builder@kodegen.ai" \
+    && git config --global user.name "Kodegen Builder"
 
 # Install bundler from GitHub main branch (always latest)
 # Cache bust 2025-01-07: Removed --version CLI parameter
