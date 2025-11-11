@@ -38,10 +38,13 @@ pub async fn generate_nsi_script(
         return Err(Error::GenericError("No binaries found to bundle".into()));
     }
 
-    // Collect all binary paths for template
+    // Collect all binary paths for template (with .exe extension for Windows)
     let binary_files: Vec<_> = binaries
         .iter()
-        .map(|b| settings.binary_path(b).display().to_string())
+        .map(|b| {
+            let path = settings.binary_path(b);
+            path.with_extension("exe").display().to_string()
+        })
         .collect();
 
     // Get main binary name for shortcuts (find main binary or use first)
