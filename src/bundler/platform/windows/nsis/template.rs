@@ -66,7 +66,9 @@ InstallDir "${INSTALL_DIR}"
 
 ; Interface Settings
 !define MUI_ABORTWARNING
+{{#unless installer_icon}}
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+{{/unless}}
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
 ; Pages
