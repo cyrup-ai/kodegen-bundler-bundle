@@ -9,7 +9,7 @@ use crate::bundler::{
     settings::Settings,
 };
 use handlebars::Handlebars;
-use std::{collections::BTreeMap, path::Path};
+use std::path::Path;
 
 /// Generate NSI installer script from template.
 ///
@@ -31,26 +31,6 @@ pub async fn generate_nsi_script(
     let mut handlebars = Handlebars::new();
     handlebars.register_escape_fn(handlebars::no_escape);
 
-    let mut data = BTreeMap::new();
-
-    // Basic metadata
-    data.insert("product_name", settings.product_name().to_string());
-    data.insert("version", settings.version_string().to_string());
-
-    // Format version for NSIS VIProductVersion (requires exactly 4 parts)
-    let version_nsis = utils::format_version_for_nsis(settings.version_string())?;
-    data.insert("version_nsis", version_nsis);
-
-    data.insert("arch", arch.to_string());
-
-    // Publisher/manufacturer
-    let publisher = settings
-        .bundle_settings()
-        .publisher
-        .as_deref()
-        .unwrap_or("Unknown Publisher");
-    data.insert("publisher", publisher.to_string());
-
     // Get all binaries (same pattern as Debian/RPM/AppImage bundlers)
     let binaries = settings.binaries();
 
@@ -63,7 +43,6 @@ pub async fn generate_nsi_script(
         .iter()
         .map(|b| settings.binary_path(b).display().to_string())
         .collect();
-    data.insert("binary_files", binary_files);
 
     // Get main binary name for shortcuts (find main binary or use first)
     let main_binary = binaries
@@ -72,7 +51,15 @@ pub async fn generate_nsi_script(
         .or_else(|| binaries.first())
         .ok_or_else(|| Error::GenericError("No binaries found".into()))?;
 
-    data.insert("binary_name", main_binary.name().to_string());
+    // Format version for NSIS VIProductVersion (requires exactly 4 parts)
+    let version_nsis = utils::format_version_for_nsis(settings.version_string())?;
+
+    // Publisher/manufacturer
+    let publisher = settings
+        .bundle_settings()
+        .publisher
+        .as_deref()
+        .unwrap_or("Unknown Publisher");
 
     // Install directory based on install mode
     let install_dir = match settings.bundle_settings().windows.nsis.install_mode {
@@ -86,31 +73,35 @@ pub async fn generate_nsi_script(
             format!("$PROGRAMFILES64\\{}", settings.product_name())
         }
     };
-    data.insert("install_dir", install_dir);
-
-    // Installer settings
-    data.insert(
-        "install_mode",
-        utils::map_install_mode(settings.bundle_settings().windows.nsis.install_mode).to_string(),
-    );
-    data.insert(
-        "compression",
-        utils::map_compression(settings.bundle_settings().windows.nsis.compression).to_string(),
-    );
 
     // Custom branding images
     let nsis_settings = &settings.bundle_settings().windows.nsis;
 
+    // Build template data with mixed types (strings and arrays)
+    let mut data = serde_json::json!({
+        "product_name": settings.product_name(),
+        "version": settings.version_string(),
+        "version_nsis": version_nsis,
+        "arch": arch,
+        "publisher": publisher,
+        "binary_files": binary_files,
+        "binary_name": main_binary.name(),
+        "install_dir": install_dir,
+        "install_mode": utils::map_install_mode(settings.bundle_settings().windows.nsis.install_mode),
+        "compression": utils::map_compression(settings.bundle_settings().windows.nsis.compression),
+    });
+
+    // Add optional branding images if present
     if let Some(header) = &nsis_settings.header_image {
-        data.insert("header_image", header.display().to_string());
+        data["header_image"] = serde_json::json!(header.display().to_string());
     }
 
     if let Some(sidebar) = &nsis_settings.sidebar_image {
-        data.insert("sidebar_image", sidebar.display().to_string());
+        data["sidebar_image"] = serde_json::json!(sidebar.display().to_string());
     }
 
     if let Some(icon) = &nsis_settings.installer_icon {
-        data.insert("installer_icon", icon.display().to_string());
+        data["installer_icon"] = serde_json::json!(icon.display().to_string());
     }
 
     // Render template
