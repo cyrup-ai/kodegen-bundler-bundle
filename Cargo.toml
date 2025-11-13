@@ -69,7 +69,7 @@ tempfile = "3"           # Temporary directories
 kodegen_bundler_sign = { version = "0.1" }
 
 # Git operations for pushing version bumps
-kodegen_tools_git = { version = "0.1" }
+kodegen_tools_git = { version = "0.2" }
 
 base64 = "0.22"
 
