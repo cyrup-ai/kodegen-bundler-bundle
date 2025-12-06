@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_bundler_bundle"
-version = "0.6.0"
+version = "0.8.0"
 edition = "2024"
 description = "Multi-platform bundler for creating native installers (.deb, .rpm, .dmg, .msi, AppImage)"
 authors = ["KODEGEN.ᴀɪ"]
@@ -22,8 +22,8 @@ name = "kodegen_bundler_bundle"
 path = "src/main.rs"
 
 [dependencies]
-kodegen_bundler_sign = { version = "0.6" }
-kodegen_tools_git = { version = "0.6" }
+kodegen_bundler_sign = { version = "0.8" }
+kodegen_tools_git = { version = "0.8" }
 
 # TOML parsing for package metadata
 toml = "0.9"
