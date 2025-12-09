@@ -12,6 +12,11 @@
 # ============================================================================
 FROM rust AS base-packages
 
+# Cache-busting argument - change this when updating system dependencies
+# Format: YYYY-MM-DD to track when dependencies were last updated
+ARG DEPS_VERSION=2025-12-08
+RUN echo "Building with dependencies version: ${DEPS_VERSION}"
+
 # Install system dependencies for building all platforms
 RUN apt-get update && apt-get install -y \
     # Build essentials
@@ -22,6 +27,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     unzip \
+    # Cross-platform build tools (required for aws-lc-sys Windows builds)
+    cmake \
+    nasm \
     # NSIS native Linux compiler for Windows installers
     nsis \
     # Windows cross-compilation toolchain (for building Windows binaries on Linux)
@@ -37,12 +45,14 @@ RUN apt-get update && apt-get install -y \
     fuse \
     libfuse2 \
     squashfs-tools \
+    # D-Bus development libraries (required by kodegen_native_notify via zbus)
+    libdbus-1-dev \
     # General utilities
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Verify base packages installed correctly
-RUN makensis -VERSION
+RUN makensis -VERSION && cmake --version && nasm --version
 
 # ============================================================================
 # Stage 2: user-setup
@@ -79,7 +89,14 @@ FROM user-setup AS rust-toolchain
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly \
     && . $HOME/.cargo/env \
     && rustup component add rustfmt clippy \
-    && rustup target add wasm32-unknown-unknown x86_64-apple-darwin x86_64-pc-windows-gnu
+    && rustup target add \
+    x86_64-apple-darwin \
+    wasm32-unknown-unknown \
+    x86_64-unknown-linux-gnu \
+    aarch64-unknown-linux-gnu \
+    x86_64-pc-windows-msvc \
+    x86_64-pc-windows-gnu \
+    aarch64-pc-windows-msvc
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
@@ -128,6 +145,8 @@ WORKDIR /workspace
 RUN rustc --version && \
     cargo --version && \
     makensis -VERSION && \
+    cmake --version && \
+    nasm --version && \
     kodegen_bundler_bundle --help
 
 # Build instructions:

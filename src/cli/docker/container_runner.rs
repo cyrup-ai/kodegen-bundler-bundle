@@ -113,6 +113,12 @@ impl ContainerRunner {
             // Process limits
             "--pids-limit".to_string(),
             self.pids_limit.to_string(),
+            // Mount cargo cache volume for persistent dependencies
+            "-v".to_string(),
+            "kodegen-bundler-cargo-cache:/tmp/cargo".to_string(),
+            // Mount target cache volume for compiled artifacts
+            "-v".to_string(),
+            "kodegen-bundler-target-cache:/tmp/kodegen-build/target".to_string(),
             // Mount output directory
             "-v".to_string(),
             output_mount,
