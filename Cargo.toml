@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_bundler_bundle"
-version = "0.10.2"
+version = "0.10.3"
 edition = "2024"
 description = "Multi-platform bundler for creating native installers (.deb, .rpm, .dmg, .msi, AppImage)"
 authors = ["KODEGEN.ᴀɪ"]
