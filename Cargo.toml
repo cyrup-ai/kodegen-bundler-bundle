@@ -1,6 +1,6 @@
 [package]
 name = "kodegen_bundler_bundle"
-version = "0.10.1"
+version = "0.10.2"
 edition = "2024"
 description = "Multi-platform bundler for creating native installers (.deb, .rpm, .dmg, .msi, AppImage)"
 authors = ["KODEGEN.ᴀɪ"]
@@ -107,8 +107,8 @@ time = "0.3"                # Timestamp handling
 tempfile = "3"           # Temporary directory for DMG staging
 
 [target.'cfg(windows)'.dependencies]
-ico = "0.4"                 # ICO icon creation
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO"] }
+ico = "0.5"                 # ICO icon creation
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO"] }
 
 [dev-dependencies]
 tempfile = "3"
