@@ -135,6 +135,20 @@ pub async fn execute_command(args: Args, runtime_config: RuntimeConfig) -> Resul
         cmd.arg("--target").arg(target);
     }
 
+    // Add platform-specific GPU features for kodegen-candle-agent
+    if manifest.binary_name == "kodegen-candle-agent" {
+        let feature = match package_type {
+            PackageType::Dmg | PackageType::MacOsBundle => Some("metal"),
+            PackageType::Deb | PackageType::Rpm | PackageType::AppImage => Some("cuda"),
+            PackageType::Exe => None, // Windows doesn't have Metal or CUDA support yet
+        };
+        
+        if let Some(feature_name) = feature {
+            runtime_config.verbose_println(&format!("   Enabling GPU feature: {}", feature_name)).expect("Failed to write to stdout");
+            cmd.arg("--features").arg(feature_name);
+        }
+    }
+
     // Pipe stdout and stderr to capture output
     let mut child = cmd
         .current_dir(&repo_path)
